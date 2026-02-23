@@ -1,28 +1,38 @@
 # Constants
-BUILD_DIR = build
-SOURCE_DIR = src
-SERIAL_DIR = $(SOURCE_DIR)/serial
+BUILD_DIR = ./build
+SRC_DIR = ./src
+SERIAL_DIR = $(SRC_DIR)/serial
+MPI_DIR = $(SRC_DIR)/mpi
 
-# Compiler Definitions
-CC = cc
-CCFLAGS = -g -O3
+# Compiler Flags
+CC      = gcc
+MPICC   = mpicc
+CFLAGS = -g -O3 -lm
 
-# Source files
-SOURCES = $(SERIAL_DIR)/serial_1.c \
-		  $(SERIAL_DIR)/serial_2.c
+# Sources
+SERIAL_SRCS := $(wildcard $(SERIAL_DIR)/serial_*.c)
+MPI_SRCS    := $(wildcard $(MPI_DIR)/mpi_*.c)
 
+# Binaries
+SERIAL_BINS := $(patsubst $(SERIAL_DIR)/%.c, $(BUILD_DIR)/%, $(SERIAL_SRCS))
+MPI_BINS    := $(patsubst $(MPI_DIR)/%.c,    $(BUILD_DIR)/%, $(MPI_SRCS))
 
-# Executables
-TARGETS = $(SOURCES:.c=.x)
+.PHONY: all serial mpi clean
 
-all: $(BUILD_DIR) $(TARGETS)
+all: serial mpi
+
+serial: $(SERIAL_BINS)
+
+mpi: $(MPI_BINS)
+
+$(BUILD_DIR)/serial_%: $(SERIAL_DIR)/serial_%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/mpi_%: $(MPI_DIR)/mpi_%.c | $(BUILD_DIR)
+	$(MPICC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-%.x: %.c
-	$(CC) $(CCFLAGS) -o $(BUILD_DIR)/$@ $^
-
-.PHONY: clean
 clean:
-	rm -f *.x
+	rm -rf $(BUILD_DIR)
