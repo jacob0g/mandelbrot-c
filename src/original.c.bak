@@ -22,7 +22,7 @@ int main() {
 	    i = loop % N;
 	    j = loop / N;
 
-	    z = kappa = (4.0 * (i - N / 2)) / N + (4.0 * (j - N / 2)) / N * I;
+	    z = kappa = (4.0 * (i - N/2)) / N + (4.0 * (j - N/2))/N * I;
 	
 	    k = 1;
 	    while ((cabs(z) <= 2) && (k++ < MAXITER)) 
