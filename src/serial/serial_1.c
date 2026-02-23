@@ -12,21 +12,28 @@ int main() {
     int	   i, j, k, loop;
     short  green, blue;
     float  *x;
+    float complex *z;
     FILE   *fp;
 
-    float complex   z, kappa;
+    float complex   kappa;
 
+    z = (float complex*)malloc(N * N * sizeof(float complex*));
     x = (float*)malloc(N * N * sizeof(float));
   
-    for (loop = 0; loop < N * N; loop++) {
-	    i = loop % N;
-	    j = loop / N;
+    // Initialise z
+    for (loop = 0; loop < N*N; loop++) {
+        i = loop % N;
+        j = loop / N;
 
-	    z = kappa = (4.0 * (i - N/2)) / N + (4.0 * (j - N/2))/N * I;
+        z[loop] = (4.0 * (i - (float)N/2)) / N + (4.0 * (j - (float)N/2))/N * I;
+    }
+
+    for (loop = 0; loop < N * N; loop++) {
+        kappa = z[loop];
 	
 	    k = 1;
-	    while ((cabs(z) <= 2) && (k++ < MAXITER)) 
-	        z = z * z + kappa;
+	    while ((cabs(z[loop]) <= 2) && (k++ < MAXITER)) 
+	        z[loop] = z[loop] * z[loop] + kappa;
 	  
 	    x[loop] = log((float)k) / log((float)MAXITER);
     }
