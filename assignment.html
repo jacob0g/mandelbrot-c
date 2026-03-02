@@ -1,0 +1,489 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"></head><body>
+
+
+   <title>High-Performance Computing - MPI</title>
+   <link rel="STYLESHEET" type="TEXT/CSS" href="assignment_files/style.css">
+
+
+<h1>HPC: Second MPI Laboratory</h1>
+
+<!-- ********************************************************** -->
+
+<h2>Initial Setup</h2>
+
+<p>
+Today you will explore non-blocking communication and master/worker
+parallelism with MPI. The <a href="#assignment">assignment</a> 
+requires you to be able to view  <a href="https://www.cs.swarthmore.edu/~soni/cs35/f12/Labs/extras/01/ppm_info.html">PPM</a>
+image files generated on Setonix.
+
+One approach uses X11 forwarding to render to image directly from the remote
+machine without copying it to your local machine. 
+Start by connecting to <tt><b>setonix</b></tt> by typing
+</p>
+
+<p><tt><b>
+ssh -Y your_username@setonix.pawsey.org.au<br>
+</b></tt></p>
+
+<p>
+where the <tt><b>-Y</b></tt> flag instructs <tt><b>ssh</b></tt> to transmit 
+the X11 output back to your display. 
+MacOS users have the option to install the free 
+<a href="http://www.xquartz.org/">Xquartz</a> package. Windows users should
+connect via <a href="https://mobaxterm.mobatek.net/">MobaXterm</a> which 
+has built-in support for X11.
+</p>
+
+<p>
+To test that X11 forwarding is working correctly, <tt><b>cd</b></tt> to the 
+directory <tt><b>/software/projects/courses0100</b></tt> and type the command
+</p>
+
+<p><tt><b>
+./xiv mandelbrot.ppm
+</b></tt></p>
+
+<p>
+A window should appear showing a render of the Mandelbrot set. Use "+" and "-" on the
+keyboard to zoom, and press the arrow keys to move around the image once zoomed
+in. Press "q" to quit. To learn more about the functionality of this simple 
+image viewer, type
+</p><p>
+
+</p><p><tt><b>
+./xiv --help
+</b></tt></p>
+
+<p>
+Later today we will want to access this program from other directories. To
+make this easier, setup an alias by typing
+</p>
+
+<p><tt><b>
+alias xiv="/software/projects/courses0100/xiv"
+</b></tt></p>
+
+<p>
+Test that your alias works by copying <tt><b>mandelbrot.ppm</b></tt> to your
+home directory and running <tt><b>xiv mandelbrot.ppm</b></tt> from there.
+</p>
+
+<p>
+If you are unable to get <tt><b>xiv</b></tt> working through X11 
+(e.g. XQuartz is having some issues on recent versions of MacOS), or if you are finding
+it too slow, you may find it easier to just <tt><b>scp</b></tt> the image files to your local
+machine and open them there. If you go down this road, please make sure you are able to open
+<tt><b>.ppm</b></tt> files on your computer (the default document viewer Preview on MacOS can
+open <tt><b>.ppm</b></tt> files). Copy the <tt><b>mandelbrot.ppm</b></tt> file to your
+computer and make sure you are able to open it.
+</p>
+
+<p>
+On an unrelated note, recall that information on the MPI functions and 
+subroutines is available via the UNIX <tt><b>man</b></tt> pages. For example, 
+typing
+</p>
+
+<p><tt><b>
+man MPI_Recv
+</b></tt></p>
+
+<p>
+provides information on the usage and errors associated with a blocking 
+receive. Details for both C and Fortran syntax is provided. These pages
+are available for all MPI routines. Look up a few, and test your memory
+to see how many functions you can remember from last week.
+</p>
+
+<p>
+As was the case last session,
+note that all source files are also available via git: 
+</p>
+<p>
+<tt><b>git clone https://github.com/liamscarlett/intro-mpi</b></tt>.
+</p>
+
+
+<!-- ********************************************************** -->
+
+<h2>Non-Blocking Communication</h2>
+
+<p>
+In the first MPI laboratory you were provided with a simple piece
+of code which used the standard blocking send
+(<tt><b>MPI_Send</b></tt> and <tt><b>MPI_Recv</b></tt>)
+to pass a single integer from Process 0 to Process 1.
+Download this code (<a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/send.f90">send.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/send.c">send.c</a>)
+and modify the program to perform non-blocking
+(non-blocking) communication using
+<tt><b>MPI_Isend/MPI_Irecv/MPI_Wait</b></tt>. 
+
+</p><p>
+Last session you explored the deadlock condition between two processes. 
+Small messages were transmitted via a buffer, but when both arrays exceeded 
+a critical size a deadlock state arose.  Download the array program from the 
+previous laboratory 
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/array.f90">array.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/array.c">array.c</a>).
+To remind yourself of the deadlock state, compile and run it with a 400KB message
+as follows
+(note that a real/float occupies four bytes of memory).
+</p><p>
+<tt><b>srun -n 2 main 100000</b></tt>
+</p>
+
+<p>
+Now modify the code to perform non-blocking communication using
+<tt><b>MPI_Isend/MPI_Irecv/MPI_Waitall</b></tt>.  Show that this avoids 
+deadlock by running the code with 400KB messages.
+</p>
+
+<p>
+Your next task is to write a two-process program which performs computation 
+during non-blocking communication.  The program should have the following 
+structure:<br><br>
+
+<table width="100%" border="1">
+<tbody><tr width="70%"> 
+<td> 
+<em>On Process 0</em>:<br><br>
+Use
+<tt><b>MPI_Isend</b></tt> to send 3 million reals/floats
+to Process 1. Once <tt><b>Isend</b></tt> is posted, 
+the program should enter a while loop which<br>
+&nbsp; 
+  a) increments a counter (initially set equal to zero) <br>
+&nbsp;
+b) uses <tt><b>MPI_Test</b></tt> to see if the 
+   <tt><b>Isend</b></tt> has completed. <br><br>
+Exit the while loop when <tt><b>Isend</b></tt> is done,
+and then print out the value of the counter.
+</td>
+
+<td width="30%"> 
+<em>On Process 1</em>:<br><br>
+
+Accept the message from Process 0 using a blocking 
+receive (<tt><b>MPI_Recv</b></tt>). <br><br>
+
+Once the message has arrived, print out the last
+data value received.
+</td>
+</tr>
+</tbody></table>
+
+</p>
+
+<p>
+Compile the program and run several times. You should find that approximately
+500,000 iterations are performed during the <tt><b>Isend</b></tt> operation.  
+Now reduce the size of message sent (e.g. consider 10<sup>5</sup> or 
+10<sup>4</sup> values).  What happens? What are the implications for 
+overlapping communication and computation?
+</p>
+
+
+<!-- ********************************************************** -->
+
+<h2> Synchronous Communication</h2>
+<p>
+Download once again the deadlock program from last session
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/array.f90">array.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi1/array.c">array.c</a>)
+and replace both <tt><b>MPI_Send</b></tt> calls with <tt><b>MPI_Ssend</b></tt>.
+Compile and run, and exchange a single number between the processes using the 
+command-line argument
+</p>
+
+<p><tt><b>
+  srun -n 2 ./main 1
+</b></tt></p>
+
+<p>
+You should find that the code now always deadlocks, regardless of message 
+size.  This is because a <em>synchronous</em> send is being used, which 
+explicitly precludes the use of any kind of buffer.
+</p>
+
+<p> 
+Now replace one of the <tt><b>MPI_Ssend</b></tt> calls with 
+<tt><b>MPI_Send</b></tt> as used in the original version.  Run the program 
+with two command-line arguments in order to control the size of both messages.
+Under some conditions the code will not deadlock. Explain what you find.
+</p>
+
+<!-- ********************************************************** -->
+
+<h2> Understanding Memory </h2>
+
+<p>
+When working with arrays it is important to appreciate how 
+data is layed out in memory.  To explore the manipulation of
+<em>sections</em> of an array, download the following program 
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/memory.f90">memory.f90</a> - <a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/memory.c">memory.c</a>)
+and run the program on two cpus.  If you are running the C version,
+use the command-line arguments
+</p>
+
+<p><tt><b>
+  srun -n 2 ./main 0 10 0
+</b></tt></p>
+
+<p>
+while Fortran users should invoke
+</p>
+
+<p><tt><b>
+  srun -n 2 ./main 1 10 1
+</b></tt></p>
+
+<p>
+You will find that an array on Process 0 is sent to Process 1,
+with the exact size and location of the message determined
+by the command-line arguments.  Note that both arrays are
+fixed in length and contain ten integers.  The meaning of the 
+three arguments are (in order): 
+starting position for <tt><b>MPI_Send</b></tt>,
+number of elements for <tt><b>MPI_Send</b></tt>, and
+receive position for <tt><b>MPI_Recv</b></tt>.
+Inspect the code to see how this is implemented.
+</p>
+
+<p>
+Vary the number of elements sent, by changing the parameter 
+<tt><b>10</b></tt> to some lower number, and observe the output.  
+Using a message-size of <tt><b>5</b></tt>, vary the start and end 
+parameters.  What happens if the start
+location has a value greater than <tt><b>5</b></tt>?  Explain
+what you observe.  What happens if the end location is
+greater than <tt><b>5</b></tt>?  What unpredictable behaviour
+might occur by sending a message in this way?
+</p>
+
+<p>
+Finally, C programmers should download and compile the program
+<a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/memory2.c">memory2.c</a>.  This accepts the same
+arguments as <a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/memory.c">memory.c</a>, and produces
+the same output (check this!).  The key difference however
+is that <tt><b>malloc</b></tt> is used to setup the array
+structures, and thus the syntax for accessing 
+<tt><b>MPI_Send</b></tt> and
+<tt><b>MPI_Recv</b></tt> is pointer-based.  This is a 
+very important subtlety, so make sure you keep track of
+which arrays are dynamic (i.e. use malloc) and which
+are static (i.e. defined in the source).
+</p>
+
+<!-- ********************************************************** -->
+
+<h2> The Mandelbrot Set</h2>
+
+<table width="95%">
+<tbody><tr>
+<td width="150px">
+<img src="assignment_files/mandelbrot.jpg" width="140px">
+</td>
+<td>
+Consider the iterative sequence<br>
+&nbsp; &nbsp; &nbsp;
+&nbsp; &nbsp; &nbsp;
+z<sub>i+1</sub>=(z<sub>i</sub>)<sup>2</sup>+κ<br>
+where z and κ are complex numbers, and 
+z<sub>0</sub>=κ.<br><br>
+When the magnitude of κ is large, this sequence quickly diverges (i.e. 
+the magnitude of z goes to ∞).  The 
+<a href="https://en.wikipedia.org/wiki/Mandelbrot_set">Mandelbrot set</a> 
+is defined as the set of values of κ for which this sequence remains 
+bounded.
+<p></p>
+</td>
+</tr></tbody></table>
+
+<p>
+It is known that the Mandelbrot set is bounded by the disk
+|κ|&lt;2, and therefore we only need to iterate until
+|z<sub>i</sub>|&gt;2 to determine that a point is not in
+the Mandelbrot set.
+</p>
+
+<p>
+The following serial code 
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot.f90">mandelbrot.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot.c">mandelbrot.c</a>)
+discretises the complex region 
+−2≤Re(z)≤2 and 
+−2≤Im(z)≤2, and computes a 2D array containing the number of 
+iterations required to reach the condition |z|&gt;2, with an upper bound 
+of 1000 iterations.  The number of iterations is converted into false colour 
+and written to an image file <tt><b>mandelbrot.ppm</b></tt>.  Compile the 
+program in the usual way, run the executable by typing <tt><b>./main</b></tt>,
+and wait for about 20 seconds.  To view the image, type
+</p>
+
+<p><tt><b>
+xiv mandelbrot.ppm
+</b></tt></p>
+
+<p>
+which runs the program seen at the start of the session. Vary the zoom and 
+explore the structure of the Mandelbrot set, paying close attention to the 
+self-similarity (fractal) nature of the image. Note that these calculations 
+should be performed in <tt><b>/scratch/courses0100/username</b></tt> as the 
+<a href="https://my.eng.utah.edu/~cs5610/ppm.html">PPM</a> 
+files are quite large. The image size is set to 2000x2000 pixels; try 
+increasing this slightly to explore the self-similarity.
+</p>
+
+<p>
+In preparation for the assessable task, examine and compile
+the following code 
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot2.f90">mandelbrot2.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot2.c">mandelbrot2.c</a>) which
+produces the same output file as the previous version, 
+except that now the array <tt><b>x</b></tt> is one-dimensional.
+This modification helps greatly when constructing a parallel version
+of the algorithm.  Note particularly the use of the integer
+and modulo arithmetic which converts the scalar <tt><b>loop</b></tt>
+into an <em>(i,j)</em> pair. Use the UNIX <tt><b>diff</b></tt> command
+to confirm that the output is <em>exactly</em> the same, being careful
+to ensure the image size is the same for both codes.
+</p>
+
+<!-- ********************************************************** -->
+
+<h2 id="assignment">Assessable Tasks</h2>
+
+<p>
+Your assessable tasks involve three different approaches to MPI
+parallelization of the Mandelbrot problem:
+</p>
+
+<ol>
+<li> Using the second of the two Mandelbrot codes, rewrite the program to use 
+     MPI with 10 processes on an 8000x8000 system.  Use static decomposition 
+     (block partioning) by dividing the complex plane into 10 rectangular 
+     strips, and have each process perform the computation for each strip.  
+     When the calculation phase is finished, use <tt><b>MPI_GATHER</b></tt> to 
+     return all data to the root process. Use the <tt><b>diff</b></tt> command 
+     to confirm that the PPM file is identical to the serial version. 
+     <br><br>
+
+     Once you have confirmed that the output is correct, comment out the 
+     code that writes the PPM file, and use <tt><b>MPI_WTIME</b></tt> and 
+     <tt><b>MPI_BARRIER</b></tt> to determine the time that each process 
+     spends on computation, waiting and communication.  Comment on the 
+     significant load imbalance between the various processes. Compare the
+     performance to the serial version.
+     <br><br>
+
+</li><li> Modify your program from Task 1 to use dynamic decomposition in a 
+     master-worker parallelism with 
+     arbitrary <tt><b>chunksize</b></tt> and number of workers. 
+     Vary the chunksize, and note the effect on the speedup relative to the 
+     original serial version.  As before, use <tt><b>diff</b></tt> to confirm 
+     that the 
+     output is correct. Comment out the I/O routine and determine the time that
+     each worker spends on computation and communication for a chunksize of 
+     100,000 and 10 workers. How does this affect the load balancing?
+     <br><br>
+
+     Using <tt><b>gnuplot</b></tt> or similar, produce a graph of total 
+     execution time vs chunksize, and thus determine the optimum chunksize 
+     with 10 workers (hint: it will be roughly constant over a fairly wide 
+     range of values). Explain what happens for very large and very small 
+     values of the chunksize. Check that you recover the same timing result 
+     as Task 1 when the chunksize is one-tenth of the total amount of work.  
+     <br><br>
+
+     Your code should work even when the chunksize does not evenly divide N*N.
+     However, it is perfectly acceptable for this task to allow one of your workers
+     to work on pixels outside the bounds of the main pixel grid to allow all workers
+     to be given chunks of equal size. All that matters is that those out-of-bounds pixels
+     are not printed to the image file, and that your solution does not suffer from 
+     memory-access faults. Compile your C code with the extra flags
+     <b><tt>-g -fsanitize=address</tt></b> to check for memory access faults.
+     <br><br>
+
+     <em>
+     Note: Do not use <tt><b>MPI_GATHER</b></tt> or any other type of 
+     collective communication for Task 2.</em>
+     <br><br>
+
+</li><li> As a final task, repeat the static decomposition exercise in Task 1 
+     using a 1D cyclic partition instead of block partitioning. Compare your 
+     results with those from Task 1, and comment on what the best 
+     MPI parallelism strategy is for the Mandelbrot set.
+</li></ol>
+
+<p></p>
+
+<!-- ********************************************************** -->
+
+<h2>Guidelines and Advice</h2>
+
+<p>
+The report is due on Thursday March 26th. It is to be written in a single-column 
+format and should be prepared using a word-processor such as LaTeX, Word or 
+Pages. Email a ZIP file of your source code and a PDF version of
+your report to <a href="mailto:liam.scarlett@curtin.edu.au">Liam Scarlett</a>. 
+The name of the PDF should be <b>FirstName.LastName.pdf</b>.
+Make sure that your name and SID is clearly stated on the first page of the
+PDF (e.g. in the header). There is no need to make waffly reports with 
+cover pages, table of contents, lists of figures, etc. Strive for brevity.
+A summary of the rationale for your grade, and a breakdown of the grades for
+each task will be sent to your Curtin email address.
+</p>
+
+<p>
+The report should be precise, understandable and concise. It should include 
+a combination of written responses, timing data, graphical representations 
+of key concepts (load balancing, communication cost, wait times, etc) and 
+code. For the load balancing questions, be sure to include graphs that
+resemble the example on the "Timing Visualisation slide in Lecture 2.
+Take care to answer all questions and address all requests for 
+comment and comparison.  Include all code fragments that are essential 
+to understand the logical flow, but there is no need to repetitively include
+lengthy/identical I/O routines for all three programs. Do not pad out 
+the report with pointless whitespace or meaningless words and figures. 
+As a rough guide, it should not exceed ten pages in length.
+</p>
+
+<p>
+The report should convey your insight into the subtleties of MPI programming
+and explain the logic behind your solution. It should include a critical 
+assessment of the best strategy and the compromises involved. For Tasks 
+2 and 3, there are many possibilities.  Feel free to suggest more than one 
+solution.
+</p>
+
+<p>
+In developing your parallel algorithms and MPI progamming skills you might
+find the following advice useful:
+</p><ul>
+  <li> Start simple and test frequently. Debugging a large piece of MPI code
+       is very difficult for the novice MPI programmer. 
+  </li><li> Make your life easier by temporarily reducing the size of the problem 
+       (i.e. reduce N). Once everything is working, reset the value.
+  </li><li> For the master-worker problem, consider first coding a solution for
+       when chunksize evenly divides N*N.
+  </li><li> Your first goal is to have a working piece of MPI code. Once that is
+       achieved, try to reduce the number of send and receive calls. Finally,
+       make the code understandable for another people.
+  </li><li> Avoid duplication and replication. If an expression is used more than 
+       once, then define a variable for that expression.
+  </li><li> Ensure you have done all the regular questions in the two MPI labs.
+       Skipping over these exercises is false economy.
+  </li><li> A clean MPI algorithm is much more important than an algorithm that 
+       optimizes every last byte and CPU cycle. Feel free to simplify your
+       code by wasting a small amount of resources.
+  </li><li> Don't assume the logic of the MPI library is the same as yours. If a
+       routine is unfamiliar, first test it in isolation before proceeding.
+</li></ul>
+<p></p>
+
+
+
+</body></html>

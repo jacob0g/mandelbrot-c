@@ -1,0 +1,175 @@
+body
+{
+  width:750px;
+  font-family: times;
+  color: #000000;
+  margin-left: 30px;
+  margin-right: 30px;
+  background-color: white;
+}
+
+body.home
+{
+  background-image: url( http://www.physics.usyd.edu.au/images/bg3.jpg );
+}
+
+table
+{
+  margin-left: 10px;
+  margin-right: 10px;
+  text-align: left;
+  font-family: times;
+  color: #000000;
+  margin-top: 5px; 
+  margin-bottom: 3;
+}
+
+li
+{
+  text-align: justify;
+}
+
+p
+{
+  font-size:12pt;
+  margin-left: 10px;
+  margin-right: 10px;
+  text-align: justify;
+  font-family: times;
+  color: #000000;
+  margin-top: 5px; 
+  margin-bottom: 14;
+}
+
+tt
+{
+  font-size:11pt;
+}
+
+td
+{
+  font-family: times,variable-width;
+  color: #000000;
+}
+
+H1
+{
+  font-family:Helvetica;
+  font-size:160%;
+  text-align: center;
+  font-weight: bold;
+  color: #000000;
+}
+
+
+H2
+{
+  font-family:Helvetica,Arial,sans-serif ;
+  font-size:120%;
+  margin-left: -10px;
+  color: #3366cc;
+  font-weight: bold;
+  margin-top: 10px; 
+  margin-bottom: -5px;
+}
+
+H3
+{
+  font-family:Helvetica,Arial,sans-serif ;
+  font-size:100%;
+  margin-left: -10px;
+  color: #3366cc;
+  font-weight: bold;
+  margin-top: 10px; 
+  margin-bottom: -5px;
+}
+
+H33
+{
+  font-family:Helvetica;
+  font-size:120%;
+  margin-left: -5px;
+  margin-bottom: 0px;
+  color: #000000
+  font-weight:bold;
+}
+
+H4
+{
+  font-family:Helvetica;
+  font-size:100%;
+  margin-left:0px;
+  color: #000000
+  font-weight:bold;
+}
+.plain
+{
+  font-family: Arial, sans-serif;
+  color: #000000;
+  margin-left: 0px;
+  margin-right: 0px
+}
+
+.text
+{
+  font-family: Arial, sans-serif;
+  color: #000000;
+  margin-left: 30px;
+  margin-right: 30px
+}
+
+.footer
+{
+  font-family: Arial, sans-serif;
+  color: #333333;
+  margin-left: 15px;
+  margin-right: 15px
+}
+
+.menutext
+{
+  font-weight: bold
+}
+
+.courier
+{
+  font-family: Courier, serif
+}
+
+.note
+{
+  font-size: 85%;
+  color: #666666;
+  margin-left: 15px;
+}
+
+.links
+{
+  font-family: Arial, sans-serif;
+  font-size: 100%;
+  color: #110000;
+}
+.underline       
+{
+  text-decoration: underline;
+}
+
+.blink          
+{
+  text-decoration: blink;
+}
+
+.line-through   
+{
+  text-decoration: line-through;
+}
+
+.overline       
+{
+  text-decoration: overline;
+}
+
+  A:link{ color: #3366cc; text-decoration: none }
+  A:visited{ color: #3366cc; text-decoration: none }
+  A:hover{ color: #ff3366; text-decoration: underline }
+
