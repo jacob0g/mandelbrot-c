@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <complex.h>
 
 /* ----------------------------------------------------------------*/
 
@@ -12,28 +11,36 @@ int main() {
     int	   i, j, k, loop;
     short  green, blue;
     float  *x;
-    float complex *z;
+    float *zi, *zj;
     FILE   *fp;
+    float ki, kj, z_squared;
 
-    float complex   kappa;
 
-    z = (float complex*)malloc(N * N * sizeof(float complex));
-    x = (float*)malloc(N * N * sizeof(float));
+    zi = (float*)malloc(N*N * sizeof(float));
+    zj = (float*)malloc(N*N * sizeof(float));
+
+    x = (float*)malloc(N*N * sizeof(float));
   
     // Initialise z
     for (loop = 0; loop < N*N; loop++) {
+        // Z_i
         i = loop % N;
-        j = loop / N;
+        zi[loop] = (4.0 * (i - (float)N/2)) / N;
 
-        z[loop] = ((4.0 * (i - (float)N/2)) / N) + ((4.0 * (j - (float)N/2)) / N) * I;
+        // Z_j
+        j = loop / N;
+        zj[loop] = (4.0 * (j - (float)N/2)) / N;
     }
 
     for (loop = 0; loop < N * N; loop++) {
-        kappa = z[loop];
+        ki = zi[loop];
+        kj = zj[loop];
 	
 	    k = 1;
-	    while ((cabs(z[loop]) <= 2) && (k++ < MAXITER)) 
-	        z[loop] = z[loop] * z[loop] + kappa;
+	    while ((zi[loop] + zj[loop] <= 4) && (k++ < MAXITER)) { 
+	        zi[loop] = (zi[loop] * zi[loop]) - (zj[loop] * zj[loop]) + ki;
+	        zj[loop] = 2 * zi[loop] * zj[loop] + kj;
+        }
 	  
 	    x[loop] = log((float)k) / log((float)MAXITER);
     }
