@@ -25,7 +25,7 @@ int main() {
         i = loop % N;
         j = loop / N;
 
-        z[loop] = (4.0 * (i - (float)N/2)) / N + (4.0 * (j - (float)N/2))/N * I;
+        z[loop] = (4.0 * (i - (float)N/2))/N + (4.0 * (j - (float)N/2))/N * I;
     }
 
     for (loop = 0; loop < N * N; loop++) {
