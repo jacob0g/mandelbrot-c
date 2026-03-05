@@ -7,7 +7,7 @@ MPI_DIR = $(SRC_DIR)/mpi
 # Compiler Flags
 CC      = gcc
 MPICC   = mpicc
-CFLAGS = -g -O3 -lm 
+CFLAGS = -g -O3 -lm -fsanitize=address 
 
 # File IO Flag
 ifdef FILE_IO

@@ -1,5 +1,5 @@
 #define MAXITER 1000
-#define N	    8000
+#define N	    2000
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &ncores);
 
-    int block_size = half / ncores;
+    int chunksize = half / ncores;
 
     // Root initialises z
     if (rank == 0) {
@@ -44,20 +44,20 @@ int main(int argc, char* argv[]) {
     }
 
     // Local z points
-    _zi = (float*)malloc(block_size * sizeof(float));
-    _zj = (float*)malloc(block_size * sizeof(float));
-    _x = (float*)malloc(block_size * sizeof(float));
+    _zi = (float*)malloc(chunksize * sizeof(float));
+    _zj = (float*)malloc(chunksize * sizeof(float));
+    _x = (float*)malloc(chunksize * sizeof(float));
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Scatter points to processes
     t = MPI_Wtime();
-    MPI_Scatter(zi, block_size, MPI_FLOAT, _zi, block_size, MPI_FLOAT, 0, MPI_COMM_WORLD); 
-    MPI_Scatter(zj, block_size, MPI_FLOAT, _zj, block_size, MPI_FLOAT, 0, MPI_COMM_WORLD); 
+    MPI_Scatter(zi, chunksize, MPI_FLOAT, _zi, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
+    MPI_Scatter(zj, chunksize, MPI_FLOAT, _zj, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
     t_comm += MPI_Wtime() - t;
 
     t = MPI_Wtime();
-    for (loop = 0; loop < block_size; loop++) {
+    for (loop = 0; loop < chunksize; loop++) {
         ki = _zi[loop];
         kj = _zj[loop];
 
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 
     // Compile results
     t = MPI_Wtime();
-    MPI_Gather(_x, block_size, MPI_FLOAT, x, block_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Gather(_x, chunksize, MPI_FLOAT, x, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD);
     t_comm += MPI_Wtime() - t;
 
     if (rank == 0) {
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
 
     if (rank == 0) {
         printf("Writing benchmark times.\n");
-        fp = fopen("benchmarks/mpi_11.dat", "w");
+        fp = fopen("benchmarks/task_1/times.dat", "w");
         fprintf(fp, "# rank\tt_work\t\tt_wait\t\tt_comm\n");
 
         for (int i = 0; i < ncores*3; i += 3) {
