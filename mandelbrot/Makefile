@@ -14,6 +14,11 @@ ifdef FILE_IO
 	CFLAGS += -DFILE_IO
 endif
 
+# Benchmark Flag
+ifdef BENCHMARK
+	CFLAGS += -DBENCHMARK
+endif
+
 # Sources
 SERIAL_SRCS := $(wildcard $(SERIAL_DIR)/serial_*.c)
 MPI_SRCS := $(wildcard $(MPI_DIR)/mpi_*.c)
