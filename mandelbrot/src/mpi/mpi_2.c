@@ -13,6 +13,13 @@
 #include <mpi.h>
 #include <math.h>
 
+// Timing Macro
+#define TIMETHIS(acc, ...) do { \
+    double _t0 = MPI_Wtime(); \
+    __VA_ARGS__ \
+    (acc) += MPI_Wtime() - _t0; \
+} while (0)
+
 // Private Functions
 static void master(int chunksize, int n_ranks);
 static void worker(int chunksize);
@@ -114,8 +121,8 @@ static void master(int chunksize, int n_ranks) {
     zj = (float*)malloc((half + padding) * sizeof(float));
     x  = (float*)malloc(N * N * sizeof(float));
   
-    t0 = MPI_Wtime();
     // Initialize z
+TIMETHIS(t_work,
     for (idx = 0; idx < half; idx++) {
         i = idx % N;
         j = idx / N;
@@ -123,7 +130,7 @@ static void master(int chunksize, int n_ranks) {
         zi[idx] = (4.0 * (i - (float)N/2)) / N;
         zj[idx] = (4.0 * (j - (float)N/2)) / N;
     }
-    t_work += MPI_Wtime() - t0;
+);
 
     t0 = MPI_Wtime();
     // Initial work distribution
