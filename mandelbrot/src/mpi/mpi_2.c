@@ -50,9 +50,9 @@ int main(int argc, char* argv[]) {
         worker(chunksize);
     
 #ifdef BENCHMARK
-    t0 = MPI_Wtime();
+TIMETHIS(t_wait,
     MPI_Barrier(MPI_COMM_WORLD);
-    t_wait += MPI_Wtime() - t0;
+);
 
     // Collate times
     if (rank == 0) {
@@ -132,7 +132,7 @@ TIMETHIS(t_work,
     }
 );
 
-    t0 = MPI_Wtime();
+TIMETHIS(t_comm, 
     // Initial work distribution
     idx = 0, n_busy = 0;
     for (r = 1; r < n_ranks; r++) {
@@ -163,16 +163,16 @@ TIMETHIS(t_work,
             n_busy--;
         }
     }
-    t_comm += MPI_Wtime() - t0;
+);
 
-    t0 = MPI_Wtime();
+TIMETHIS(t_work, 
     // Mirror rows 1..N/2-1 to rows N-1..N/2+1
     for (j = 1; j < N/2; j++) {
         for (i = 0; i < N; i++) {
             x[(N - j) * N + i] = x[j * N + i];
         }
     }
-    t_work += MPI_Wtime() - t0;
+);
 
 #ifdef FILE_IO
     int green, blue, loop;
@@ -208,7 +208,7 @@ static void worker(int chunksize) {
     _x  = (float*)malloc(chunksize * sizeof(float));
 
     while (1) {
-        t0 = MPI_Wtime();
+TIMETHIS(t_comm,
         // Receive work header
         MPI_Recv(&idx, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         if (status.MPI_TAG == TAG_DONE) {
@@ -219,9 +219,9 @@ static void worker(int chunksize) {
         // Receive rest of work payload
         MPI_Recv(_zi, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(_zj, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        t_comm += MPI_Wtime() - t0;
+);
 
-        t0 = MPI_Wtime();
+TIMETHIS(t_work,
         // Compute work
         for (n = 0; n < chunksize; n++) {
             ki = _zi[n];
@@ -236,13 +236,13 @@ static void worker(int chunksize) {
           
             _x[n] = log((float)k) / log((float)MAXITER);
         }
-        t_work += MPI_Wtime() - t0;
+);
 
-        t0 = MPI_Wtime();
+TIMETHIS(t_comm,
         // Reply with result
         MPI_Send(&idx, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
         MPI_Send(_x, chunksize, MPI_FLOAT, 0, TAG_RESULT, MPI_COMM_WORLD);
-        t_work += MPI_Wtime() - t0;
+);
     }
 
     free(_zi);
