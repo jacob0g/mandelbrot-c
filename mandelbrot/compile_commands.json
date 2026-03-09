@@ -1,0 +1,107 @@
+[
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/serial/serial_0.c",
+   "-o",
+   "build/serial_0"
+  ],
+  "file": "src/serial/serial_0.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/serial/serial_1.c",
+   "-o",
+   "build/serial_1"
+  ],
+  "file": "src/serial/serial_1.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/serial/serial_2.c",
+   "-o",
+   "build/serial_2"
+  ],
+  "file": "src/serial/serial_2.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "mpicc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/mpi/mpi_0.c",
+   "-o",
+   "build/mpi_0"
+  ],
+  "file": "src/mpi/mpi_0.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "mpicc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/mpi/mpi_1.c",
+   "-o",
+   "build/mpi_1"
+  ],
+  "file": "src/mpi/mpi_1.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "mpicc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/mpi/mpi_2.c",
+   "-o",
+   "build/mpi_2"
+  ],
+  "file": "src/mpi/mpi_2.c"
+ },
+ {
+  "directory": "/home/user/Documents/mandelbrot/mandelbrot",
+  "arguments": [
+   "mpicc",
+   "-g",
+   "-O3",
+   "-lm",
+   "-fsanitize=address",
+   "-I./include",
+   "src/mpi/mpi_3.c",
+   "-o",
+   "build/mpi_3"
+  ],
+  "file": "src/mpi/mpi_3.c"
+ }
+]
