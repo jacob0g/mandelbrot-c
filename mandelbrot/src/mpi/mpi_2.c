@@ -1,6 +1,6 @@
 #define MAXITER     1000
 #define N	        2000
-#define CHUNK_SIZE  100000 // default
+#define CHUNK_SIZE  2000 // default
 
 // MPI Tags
 #define TAG_WORK    1
@@ -12,20 +12,14 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <math.h>
-
-// Timing Macro
-#define TIMETHIS(acc, ...) do { \
-    double _t0 = MPI_Wtime(); \
-    __VA_ARGS__ \
-    (acc) += MPI_Wtime() - _t0; \
-} while (0)
+#include "timing.h"
 
 // Private Functions
 static void master(int chunksize, int n_ranks);
 static void worker(int chunksize);
 
 // Timing Globals
-static double t0, t_work=0, t_wait=0, t_comm=0;
+static double t_work=0, t_wait=0, t_comm=0;
 
 /* ----------------------------------------------------------------*/
 
@@ -50,9 +44,10 @@ int main(int argc, char* argv[]) {
         worker(chunksize);
     
 #ifdef BENCHMARK
-TIMETHIS(t_wait,
+    DECL_TIMER(t_wait);
+    START_TIMER(t_wait);
     MPI_Barrier(MPI_COMM_WORLD);
-);
+    STOP_TIMER(t_wait);
 
     // Collate times
     if (rank == 0) {
@@ -69,14 +64,7 @@ TIMETHIS(t_wait,
         // Write times
         printf("Writing benchmark times.\n");
         snprintf(filename, sizeof(filename), "benchmarks/task_2/chunksize-%d.dat", chunksize);
-        FILE *fp = fopen(filename, "w");
-
-        fprintf(fp, "# rank\tt_work\t\tt_wait\t\tt_comm\n");
-        for (int i = 0; i < n_ranks*3; i += 3) {
-            fprintf(fp, "  %d \t%lf\t%lf\t%lf\n", i/3, times[i], times[i+1], times[i+2]);
-        }
-
-        fclose(fp);
+        WRITE_TIMINGS(filename, times, n_ranks);
         free(times);
     }
     else {
@@ -112,6 +100,7 @@ static void master(int chunksize, int n_ranks) {
     int         result_idx, n_busy;
     int         half = (N/2 + 1) * N;
     int         padding = half % chunksize;
+    DECL_TIMER(t_work); DECL_TIMER(t_comm);
 
     // Check master isn't only process
     if (n_ranks < 2)
@@ -122,7 +111,7 @@ static void master(int chunksize, int n_ranks) {
     x  = (float*)malloc(N * N * sizeof(float));
   
     // Initialize z
-TIMETHIS(t_work,
+    START_TIMER(t_work);
     for (idx = 0; idx < half; idx++) {
         i = idx % N;
         j = idx / N;
@@ -130,9 +119,9 @@ TIMETHIS(t_work,
         zi[idx] = (4.0 * (i - (float)N/2)) / N;
         zj[idx] = (4.0 * (j - (float)N/2)) / N;
     }
-);
+    STOP_TIMER(t_work);
 
-TIMETHIS(t_comm, 
+    START_TIMER(t_comm);
     // Initial work distribution
     idx = 0, n_busy = 0;
     for (r = 1; r < n_ranks; r++) {
@@ -163,16 +152,16 @@ TIMETHIS(t_comm,
             n_busy--;
         }
     }
-);
+    STOP_TIMER(t_comm);
 
-TIMETHIS(t_work, 
+    START_TIMER(t_work);
     // Mirror rows 1..N/2-1 to rows N-1..N/2+1
     for (j = 1; j < N/2; j++) {
         for (i = 0; i < N; i++) {
             x[(N - j) * N + i] = x[j * N + i];
         }
     }
-);
+    STOP_TIMER(t_work);
 
 #ifdef FILE_IO
     int green, blue, loop;
@@ -202,26 +191,27 @@ static void worker(int chunksize) {
     float       *_zi, *_zj, *_x;
     float       ki, kj;
     MPI_Status  status;
+    DECL_TIMER(t_comm); DECL_TIMER(t_work);
 
     _zi = (float*)malloc(chunksize * sizeof(float));
     _zj = (float*)malloc(chunksize * sizeof(float));
     _x  = (float*)malloc(chunksize * sizeof(float));
 
     while (1) {
-TIMETHIS(t_comm,
+        START_TIMER(t_comm);
         // Receive work header
         MPI_Recv(&idx, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         if (status.MPI_TAG == TAG_DONE) {
-            t_comm += MPI_Wtime() - t0;
+            STOP_TIMER(t_comm);
             break;
         }
 
         // Receive rest of work payload
         MPI_Recv(_zi, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(_zj, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-);
+        STOP_TIMER(t_comm);
 
-TIMETHIS(t_work,
+        START_TIMER(t_work);
         // Compute work
         for (n = 0; n < chunksize; n++) {
             ki = _zi[n];
@@ -236,13 +226,13 @@ TIMETHIS(t_work,
           
             _x[n] = log((float)k) / log((float)MAXITER);
         }
-);
+        STOP_TIMER(t_work);
 
-TIMETHIS(t_comm,
+        START_TIMER(t_comm);
         // Reply with result
         MPI_Send(&idx, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
         MPI_Send(_x, chunksize, MPI_FLOAT, 0, TAG_RESULT, MPI_COMM_WORLD);
-);
+        STOP_TIMER(t_comm);
     }
 
     free(_zi);

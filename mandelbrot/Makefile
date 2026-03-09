@@ -1,5 +1,6 @@
 # Constants
 BUILD_DIR = ./build
+INCLUDE_DIR = ./include
 SRC_DIR = ./src
 SERIAL_DIR = $(SRC_DIR)/serial
 MPI_DIR = $(SRC_DIR)/mpi
@@ -18,6 +19,9 @@ endif
 ifdef BENCHMARK
 	CFLAGS += -DBENCHMARK
 endif
+
+# Append includes to CFLAGS
+CFLAGS += -I$(INCLUDE_DIR)
 
 # Sources
 SERIAL_SRCS := $(wildcard $(SERIAL_DIR)/serial_*.c)

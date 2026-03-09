@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <math.h>
+#include "timing.h"
 
 /* ----------------------------------------------------------------*/
 
 int main(int argc, char* argv[]) {
     MPI_Status status;
-    int rank, ncores;
+    int rank, n_ranks;
 
     int	   i, j, k, loop;
     short  green, blue;
@@ -18,15 +19,16 @@ int main(int argc, char* argv[]) {
     float  ki, kj;
     int    half = (N/2 + 1) * N;
     float  *_x, *_zi, *_zj;
-    double t, t_comm=0, t_wait=0, t_work=0;
+    double t_comm=0, t_wait=0, t_work=0;
+    DECL_TIMER(t_comm); DECL_TIMER(t_wait); DECL_TIMER(t_work);
     FILE   *fp;
 
     // MPI Initialisation
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &ncores);
+    MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
 
-    int chunksize = half / ncores;
+    int chunksize = half / n_ranks;
 
     // Root initialises z
     if (rank == 0) {
@@ -51,36 +53,36 @@ int main(int argc, char* argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Scatter points to processes
-    t = MPI_Wtime();
+    START_TIMER(t_comm);
     MPI_Scatter(zi, chunksize, MPI_FLOAT, _zi, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
     MPI_Scatter(zj, chunksize, MPI_FLOAT, _zj, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
-    t_comm += MPI_Wtime() - t;
+    STOP_TIMER(t_comm);
 
-    t = MPI_Wtime();
+    START_TIMER(t_work);
     for (loop = 0; loop < chunksize; loop++) {
-        ki = _zi[loop];
-        kj = _zj[loop];
+    ki = _zi[loop];
+    kj = _zj[loop];
 
-        k = 1;
-        while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4) && (k++ < MAXITER)) { 
-            float new_zi = (_zi[loop] * _zi[loop]) - (_zj[loop] * _zj[loop]) + ki;
-	        _zj[loop] = 2 * _zi[loop] * _zj[loop] + kj;
-	        _zi[loop] = new_zi;
-        }
-	  
-	    _x[loop] = log((float)k) / log((float)MAXITER);
+    k = 1;
+    while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4) && (k++ < MAXITER)) { 
+        float new_zi = (_zi[loop] * _zi[loop]) - (_zj[loop] * _zj[loop]) + ki;
+        _zj[loop] = 2 * _zi[loop] * _zj[loop] + kj;
+        _zi[loop] = new_zi;
     }
-    t_work += MPI_Wtime() - t;
+  
+    _x[loop] = log((float)k) / log((float)MAXITER);
+    }
+    STOP_TIMER(t_work);
 
     // Wait for processes
-    t = MPI_Wtime();
+    START_TIMER(t_wait);
     MPI_Barrier(MPI_COMM_WORLD);
-    t_wait += MPI_Wtime() - t;
+    STOP_TIMER(t_wait);
 
     // Compile results
-    t = MPI_Wtime();
+    START_TIMER(t_comm);
     MPI_Gather(_x, chunksize, MPI_FLOAT, x, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    t_comm += MPI_Wtime() - t;
+    STOP_TIMER(t_comm);
 
     if (rank == 0) {
         // Mirror rows 1..N/2-1 to rows N-1..N/2+1
@@ -127,20 +129,14 @@ int main(int argc, char* argv[]) {
     double *times;
 
     if (rank == 0)
-        times = (double*)malloc(ncores * 3 * sizeof(double));
+        times = (double*)malloc(n_ranks * 3 * sizeof(double));
 
     MPI_Gather(_times, 3, MPI_DOUBLE, times, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         printf("Writing benchmark times.\n");
-        fp = fopen("benchmarks/task_1/times.dat", "w");
-        fprintf(fp, "# rank\tt_work\t\tt_wait\t\tt_comm\n");
-
-        for (int i = 0; i < ncores*3; i += 3) {
-            fprintf(fp, "  %d \t%lf\t%lf\t%lf\n", i/3, times[i], times[i+1], times[i+2]);
-        }
-
-        fclose(fp);
+        WRITE_TIMINGS("benchmarks/task_1/mpi_1.dat", times, n_ranks);
+        free(times);
     }
 #endif
 
