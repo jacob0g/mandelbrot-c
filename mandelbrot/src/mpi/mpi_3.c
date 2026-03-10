@@ -36,12 +36,15 @@ int main(int argc, char* argv[]) {
         zj = (float*)malloc(half * sizeof(float));
         x = (float*)malloc(N*N * sizeof(float));
       
-        for (loop = 0; loop < half; loop++) {
-            i = loop / N;
-            j = loop % (N/2);
+        for (int idx = 0; idx < chunksize; idx++) {
+            for (int block_idx = 0; block_idx < n_ranks; block_idx++) {
+                loop = (block_idx * chunksize) + idx;
+                i = loop % N;
+                j = loop / N;
 
-            zi[loop] = (4.0 * (i - (float)N/2)) / N;
-            zj[loop] = (4.0 * (j - (float)N/2)) / N;
+                zi[loop] = (4.0 * (i - (float)N/2)) / N;
+                zj[loop] = (4.0 * (j - (float)N/2)) / N;
+            }
         }
     }
 
@@ -86,6 +89,16 @@ int main(int argc, char* argv[]) {
     MPI_Gather(_x, chunksize, MPI_FLOAT, x, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD);
     STOP_TIMER(t_comm);
 
+    // Re-order cyclic partitioned results to original order
+    int c = 0;
+    float *final_x = (float*)malloc(N*N * sizeof(float));
+    for (int idx = 0; idx < chunksize; idx++) {
+        for (int block_idx = 0; block_idx < n_ranks; block_idx++) {
+            loop = (block_idx * chunksize) + idx;
+            final_x[c++] = x[loop];
+        }
+    }
+
     if (rank == 0) {
         // Mirror rows 1..N/2-1 to rows N-1..N/2+1
         for (j = 1; j < N/2; j++) {
@@ -102,11 +115,11 @@ int main(int argc, char* argv[]) {
         fprintf (fp, "P6\n%4d %4d\n255\n", N, N);
         
         for (loop = 0; loop < N*N; loop++) { 
-            if (x[loop] < 0.5) {
-                green = (int)(2 * x[loop] * 255);
+            if (final_x[loop] < 0.5) {
+                green = (int)(2 * final_x[loop] * 255);
                 fprintf(fp, "%c%c%c", 255 - green, green, 0);
             } else {
-                blue = (int)(2 * x[loop] * 255 - 255);
+                blue = (int)(2 * final_x[loop] * 255 - 255);
                 fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
             }
         }
@@ -142,6 +155,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+    free(final_x);
     MPI_Finalize();
 }
 
