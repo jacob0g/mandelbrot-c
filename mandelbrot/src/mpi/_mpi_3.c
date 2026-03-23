@@ -1,10 +1,11 @@
-#define MAXITER     1000
-#define N           8000
+#define MAXITER 1000
+#define N	    2000
 
-#define BENCHMARK_PATH "benchmarks/task_1"
+#define BENCHMARK_PATH "benchmarks/task_3"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <mpi.h>
 #include <math.h>
 #include "timing.h"
@@ -16,37 +17,50 @@ int main(int argc, char* argv[]) {
     MPI_Status status;
     int rank, n_ranks;
 
-    int     i, j, k, loop;
-    int     *n, *_n;
-    float   *x, *_zi, *_zj;
-    float   ki, kj;
-    FILE    *fp;
-    short   green, blue;
-    double  t_work, t_comm, t_wait;
-    DECL_TIMER(t_work); DECL_TIMER(t_comm); DECL_TIMER(t_wait);
+    int	   i, j, loop;
+    short  green, blue;
+    float  *x, *zi, *zj;
+    float  *_zi, *_zj;
+    uint16_t k;
+    uint16_t *n, *_n;
+    size_t c;
+    float  ki, kj;
+    int    half = (N/2 + 1) * N;
+    double t_comm=0, t_wait=0, t_work=0;
+    DECL_TIMER(t_comm); DECL_TIMER(t_wait); DECL_TIMER(t_work);
+    FILE   *fp;
 
     // MPI Initialisation
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
 
-    int half = (N/2 + 1) * N;
     int chunksize = half / n_ranks;
 
-    // Root initialises n
+    // Root initialises z
     if (rank == 0) {
+        zi = (float*)malloc(half * sizeof(float));
+        zj = (float*)malloc(half * sizeof(float));
         x = (float*)malloc(N*N * sizeof(float));
-        n = (int*)malloc(half * sizeof(int));
+        n = (uint16_t*)malloc(half * sizeof(uint16_t));
       
-        for (loop = 0; loop < half; loop++) {
-            n[loop] = loop;
+        c = 0;
+        for (int idx = 0; idx < chunksize; idx++) {
+            for (int block_idx = 0; block_idx < n_ranks; block_idx++) {
+                loop = (block_idx * chunksize) + idx;
+                i = loop % N;
+                j = loop / N;
+
+                zi[c] = (4.0 * (i - (float)N/2)) / N;
+                zj[c++] = (4.0 * (j - (float)N/2)) / N;
+            }
         }
     }
 
     // Local z points
     _zi = (float*)malloc(chunksize * sizeof(float));
     _zj = (float*)malloc(chunksize * sizeof(float));
-    _n = (int*)malloc(chunksize * sizeof(int));
+    _n = (uint16_t*)malloc(chunksize * sizeof(uint16_t));
 
     START_TIMER(t_wait);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -54,18 +68,14 @@ int main(int argc, char* argv[]) {
 
     // Scatter points to processes
     START_TIMER(t_comm);
-    MPI_Scatter(n, chunksize, MPI_INT, _n, chunksize, MPI_INT, 0, MPI_COMM_WORLD); 
+    MPI_Scatter(zi, chunksize, MPI_FLOAT, _zi, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
+    MPI_Scatter(zj, chunksize, MPI_FLOAT, _zj, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD); 
     STOP_TIMER(t_comm);
 
     START_TIMER(t_work);
     for (loop = 0; loop < chunksize; loop++) {
-        i = _n[loop] % N;
-        j = _n[loop] / N;
-
-        ki = (4.0 * (i - (float)N/2)) / N;
-        kj = (4.0 * (j - (float)N/2)) / N;
-        _zi[loop] = ki;
-        _zj[loop] = kj;
+        ki = _zi[loop];
+        kj = _zj[loop];
 
         k = 1;
         while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4) && (k++ < MAXITER)) { 
@@ -75,6 +85,7 @@ int main(int argc, char* argv[]) {
         }
       
         _n[loop] = k;
+        // _n[loop] = log((float)k) / log((float)MAXITER);
     }
     STOP_TIMER(t_work);
 
@@ -85,13 +96,21 @@ int main(int argc, char* argv[]) {
 
     // Compile number of iterations
     START_TIMER(t_comm);
-    MPI_Gather(_n, chunksize, MPI_INT, n, chunksize, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(_n, chunksize, MPI_UINT16_T, n, chunksize, MPI_UINT16_T, 0, MPI_COMM_WORLD);
     STOP_TIMER(t_comm);
 
     if (rank == 0) {
-        for (loop = 0; loop < half; loop++) {
-            x[loop] = log((float)n[loop]) / log((float)MAXITER);
+        // Re-order cyclic partitioned results to original order
+        c = 0;
+        for (int idx = 0; idx < chunksize; idx++) {
+            for (int block_idx = 0; block_idx < n_ranks; block_idx++) {
+                loop = (block_idx * chunksize) + idx;
+                x[loop] = log((float)n[c++]) / log((float)MAXITER);
+            }
         }
+        // for (loop = 0; loop < half; loop++) {
+        //     x[loop] = log((float)n[loop]) / log((float)MAXITER);
+        // }
 
         // Mirror rows 1..N/2-1 to rows N-1..N/2+1
         for (j = 1; j < N/2; j++) {
@@ -122,6 +141,8 @@ int main(int argc, char* argv[]) {
 
 /* ----------------------------------------------------------------*/
 
+        free(zi);
+        free(zj);
         free(n);
         free(x);
     }

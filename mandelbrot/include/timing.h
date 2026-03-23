@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <mpi.h>
 
+
 // Declare timer variables once per scope before use.
 #define DECL_TIMER(acc)  double _timer_##acc
 

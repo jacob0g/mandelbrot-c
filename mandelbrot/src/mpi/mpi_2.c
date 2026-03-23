@@ -1,6 +1,8 @@
 #define MAXITER     1000
-#define N	        2000
+#define N	        15000
 #define CHUNK_SIZE  2000 // default
+
+#define BENCHMARK_PATH "benchmarks/task_2"
 
 // MPI Tags
 #define TAG_WORK    1
@@ -27,6 +29,8 @@ int main(int argc, char* argv[]) {
     MPI_Status  status;
     int         rank, n_ranks;
     int         chunksize = CHUNK_SIZE;
+    int         half = (N/2 + 1) * N;
+
 
     // MPI Initialisation
     MPI_Init(&argc, &argv);
@@ -36,13 +40,17 @@ int main(int argc, char* argv[]) {
     // Parse arguments
     if (argc == 2)
         chunksize = atoi(argv[1]);
-    
+
+    // Limit chunksize
+    if (chunksize > half)
+        chunksize = half;
+
     // Call routines
     if (rank == 0)
         master(chunksize, n_ranks);
     else
         worker(chunksize);
-    
+
 #ifdef BENCHMARK
     DECL_TIMER(t_wait);
     START_TIMER(t_wait);
@@ -61,9 +69,12 @@ int main(int argc, char* argv[]) {
             MPI_Recv(times + (3*r), 3, MPI_DOUBLE, r, TAG_TIMING, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        // Write times
-        printf("Writing benchmark times.\n");
-        snprintf(filename, sizeof(filename), "benchmarks/task_2/chunksize-%d.dat", chunksize);
+        snprintf(
+            filename, sizeof(filename), "%s/N_%d-RANK_%d-CHUNKSIZE_%d.dat", 
+            BENCHMARK_PATH, N, n_ranks, chunksize
+        );
+
+        printf("Writing benchmark times to: %s.\n", filename);
         WRITE_TIMINGS(filename, times, n_ranks);
         free(times);
     }
@@ -76,16 +87,14 @@ int main(int argc, char* argv[]) {
     MPI_Finalize();
 }
 
-inline void send_work(float *zi, float *zj, int *idx, int chunksize, int rank) {
+inline void send_work(int *idx, int rank) {
     MPI_Send(idx, 1, MPI_INT, rank, TAG_WORK, MPI_COMM_WORLD);
-    MPI_Send(zi, chunksize, MPI_FLOAT, rank, TAG_WORK, MPI_COMM_WORLD);
-    MPI_Send(zj, chunksize, MPI_FLOAT, rank, TAG_WORK, MPI_COMM_WORLD);
 }
 
-inline void recv_result(float *result, int *idx, int chunksize, MPI_Status *status) {
+inline void recv_result(int *result, int *idx, int chunksize, MPI_Status *status) {
     MPI_Recv(idx, 1, MPI_INT, MPI_ANY_SOURCE,
             TAG_RESULT, MPI_COMM_WORLD, status);
-    MPI_Recv(result + *idx, chunksize, MPI_FLOAT, status->MPI_SOURCE,
+    MPI_Recv(result + *idx, chunksize, MPI_INT, status->MPI_SOURCE,
             TAG_RESULT, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
@@ -95,37 +104,27 @@ inline void send_done(int rank) {
 
 static void master(int chunksize, int n_ranks) {
     MPI_Status  status;
-    int         i, j, k, r, idx;
-    float       *x, *zi, *zj;
+    int         r, idx, loop;
+    int         *n;
+    float       *x;
     int         result_idx, n_busy;
-    int         half = (N/2 + 1) * N;
-    int         padding = half % chunksize;
     DECL_TIMER(t_work); DECL_TIMER(t_comm);
+
+    int half = (N/2 + 1) * N;
+    int padding = (chunksize - half % chunksize) % chunksize;
 
     // Check master isn't only process
     if (n_ranks < 2)
         return;
 
-    zi = (float*)malloc((half + padding) * sizeof(float));
-    zj = (float*)malloc((half + padding) * sizeof(float));
-    x  = (float*)malloc(N * N * sizeof(float));
+    n = (int*)malloc((half + padding) * sizeof(int));
+    x = (float*)malloc(N*N * sizeof(float));
   
-    // Initialize z
-    START_TIMER(t_work);
-    for (idx = 0; idx < half; idx++) {
-        i = idx % N;
-        j = idx / N;
-
-        zi[idx] = (4.0 * (i - (float)N/2)) / N;
-        zj[idx] = (4.0 * (j - (float)N/2)) / N;
-    }
-    STOP_TIMER(t_work);
-
     START_TIMER(t_comm);
     // Initial work distribution
     idx = 0, n_busy = 0;
     for (r = 1; r < n_ranks; r++) {
-        send_work(&zi[idx], &zj[idx], &idx, chunksize, r);
+        send_work(&idx, r);
 
         n_busy++;
         idx += chunksize;
@@ -140,11 +139,11 @@ static void master(int chunksize, int n_ranks) {
 
     // Work Scheduling Loop
     while (idx < half || n_busy > 0) {
-        recv_result(x, &result_idx, chunksize, &status);
+        recv_result(n, &result_idx, chunksize, &status);
 
         if (idx < half) {
             // Reply with more work
-            send_work(&zi[idx], &zj[idx], &idx, chunksize, status.MPI_SOURCE);
+            send_work(&idx, status.MPI_SOURCE);
             idx += chunksize;
         }
         else {
@@ -155,47 +154,52 @@ static void master(int chunksize, int n_ranks) {
     STOP_TIMER(t_comm);
 
     START_TIMER(t_work);
+    for (idx = 0; idx < half; idx++) {
+        x[idx] = log((float)n[idx]) / log((float)MAXITER);
+    }
+
     // Mirror rows 1..N/2-1 to rows N-1..N/2+1
-    for (j = 1; j < N/2; j++) {
-        for (i = 0; i < N; i++) {
+    for (int j = 1; j < N/2; j++) {
+        for (int i = 0; i < N; i++) {
             x[(N - j) * N + i] = x[j * N + i];
         }
     }
     STOP_TIMER(t_work);
 
 #ifdef FILE_IO
-    int green, blue, loop;
+    short green, blue;
 
     printf("Writing mandelbrot.ppm\n");
     FILE *fp = fopen ("mandelbrot.ppm", "w");
     fprintf (fp, "P6\n%4d %4d\n255\n", N, N);
-    for (loop = 0; loop < N*N; loop++) { 
-        if (x[loop] < 0.5) {
-            green = (int)(2 * x[loop] * 255);
+    for (idx = 0; idx < N*N; idx++) { 
+        if (x[idx] < 0.5) {
+            green = (int)(2 * x[idx] * 255);
             fprintf(fp, "%c%c%c", 255 - green, green, 0);
         } else {
-            blue = (int)(2 * x[loop] * 255 - 255);
+            blue = (int)(2 * x[idx] * 255 - 255);
             fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
         }
     }
     fclose(fp);
 #endif
 
-    free(zi);
-    free(zj);
+    free(n);
     free(x);
 }
 
 static void worker(int chunksize) {
-    int         idx, k, n;
-    float       *_zi, *_zj, *_x;
+    int         c, i, j, k, n, idx;
+    int         loop;
+    int         *_n;
+    float       *_zi, *_zj;
     float       ki, kj;
     MPI_Status  status;
     DECL_TIMER(t_comm); DECL_TIMER(t_work);
 
     _zi = (float*)malloc(chunksize * sizeof(float));
     _zj = (float*)malloc(chunksize * sizeof(float));
-    _x  = (float*)malloc(chunksize * sizeof(float));
+    _n  = (int*)malloc(chunksize * sizeof(int));
 
     while (1) {
         START_TIMER(t_comm);
@@ -205,38 +209,38 @@ static void worker(int chunksize) {
             STOP_TIMER(t_comm);
             break;
         }
-
-        // Receive rest of work payload
-        MPI_Recv(_zi, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(_zj, chunksize, MPI_FLOAT, 0, TAG_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         STOP_TIMER(t_comm);
 
         START_TIMER(t_work);
         // Compute work
-        for (n = 0; n < chunksize; n++) {
-            ki = _zi[n];
-            kj = _zj[n];
+        for (loop = 0; loop < chunksize; loop++) {
+            c = idx + loop;
+            i = c % N;
+            j = c / N;
+
+            _zi[loop] = ki = (4.0 * (i - (float)N/2)) / N;
+            _zj[loop] = kj = (4.0 * (j - (float)N/2)) / N;
 
             k = 1;
-            while (((_zi[n] * _zi[n]) + (_zj[n] * _zj[n]) <= 4) && (k++ < MAXITER)) { 
-                float new_zi = (_zi[n] * _zi[n]) - (_zj[n] * _zj[n]) + ki;
-                _zj[n] = 2 * _zi[n] * _zj[n] + kj;
-                _zi[n] = new_zi;
+            while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4) && (k++ < MAXITER)) { 
+                float new_zi = (_zi[loop] * _zi[loop]) - (_zj[loop] * _zj[loop]) + ki;
+                _zj[loop] = 2 * _zi[loop] * _zj[loop] + kj;
+                _zi[loop] = new_zi;
             }
           
-            _x[n] = log((float)k) / log((float)MAXITER);
+            _n[loop] = k;
         }
         STOP_TIMER(t_work);
 
         START_TIMER(t_comm);
         // Reply with result
         MPI_Send(&idx, 1, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
-        MPI_Send(_x, chunksize, MPI_FLOAT, 0, TAG_RESULT, MPI_COMM_WORLD);
+        MPI_Send(_n, chunksize, MPI_INT, 0, TAG_RESULT, MPI_COMM_WORLD);
         STOP_TIMER(t_comm);
     }
 
     free(_zi);
     free(_zj);
-    free(_x);
+    free(_n);
 }
 
