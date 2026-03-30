@@ -1,0 +1,197 @@
+\documentclass[11pt]{article}
+
+% Packages
+\usepackage[top=0.75in, bottom=1in, left=0.625in, right=0.625in]{geometry}
+\usepackage{newtxtext, newtxmath}
+\usepackage{amsmath}
+\usepackage{graphicx}
+% \usepackage{minipage}
+\usepackage{caption}
+% \usepackage{float}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Figure Path
+\graphicspath{ {./figures/} }
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{teal},
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray}
+}
+
+% Hyperlink style
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue
+}
+
+% -----------------------------------------------
+%   Title block
+% -----------------------------------------------
+\title{MPI Parallelisation For Computing The Mandelbrot Set}
+\author{
+    Jacob Gallop \\
+    \small Student ID: 20253130 \\
+    % \small High Performance Computing \\
+    % \small Curtin University
+}
+% \date{\today}
+
+% -----------------------------------------------
+\begin{document}
+
+\maketitle
+
+% - Describe mandelbrot set and algorithm
+% - Include render
+% - Explain serial changes
+% - Show serial time
+
+% Static Decomposition (Block Partitioning)
+% - Describe data distribution
+% - Explain algorithm for distributing work
+% - Code snippets showing changes
+% - Compare timing to serial code, and to ideal speedup (Amdahl's Law)
+% - Timing figure. Explain
+
+% Dynamic Decomposition (Master-worker)
+% - Include previous points
+% - [Non-blocking algorithm]
+% - Figure of runtime vs. chunksize. Explain
+% - Compare timing of chunksize /= 10 to static. Explain.
+
+% Static Decomposition (Cyclic Partitioning)
+% - Include previous points
+% - Compare timing/load-balancing figure to block partitioning. Explain.
+
+% Conclusion
+% - Comparison of three methods implemented
+% - Strengths and weaknesses of each.
+% - Best?
+
+
+\begin{abstract}
+\vspace{2em}
+\begin{minipage}{0.50\linewidth}
+\vspace{-2em}
+The problem that we are trying to solve is that of rendering the Mandelbrot set, a
+famous fractal pattern produced by iterating the complex quadratic recurrence relation:
+\begin{equation}
+    Z_{n+1} = Z_{n}^{2} + C
+\end{equation}
+
+where $Z_{n}$ is the value of the iteration after $n$ iterations, and $C$ is a complex
+number representing a point in the complex plane. The value of $Z_{0}$ is usually taken
+to be zero. The iteration is repeated until the magnitude of $Z_{n}$ exceeds $2$ (at
+which point the sequence diverges), or a maximum number of iterations is reached (at
+which point the point is considered to be part of the Mandelbrot set). The iteration
+count is then used to assign a colour to the pixel representing that point, thus
+rendering the set.
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\linewidth}
+    \centering
+    \includegraphics[width=0.8\linewidth]{mandelbrot.jpg}
+    \captionof{figure}{Render of the Mandelbrot Set}
+    \label{fig:mandelbrot}
+\end{minipage}
+
+\end{abstract}
+
+% -----------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Introduce the problem and motivate why it matters. Outline the
+contributions of the paper and describe how the rest of the document
+is organised.
+
+% -----------------------------------------------
+\section{Background}
+\label{sec:background}
+
+Summarise related work and provide the theoretical or technical
+context that the reader needs to understand your contribution.
+
+% -----------------------------------------------
+\section{Methodology}
+\label{sec:methodology}
+
+Describe your approach, design decisions, algorithms, or system
+architecture. Use sub-sections as needed.
+
+\subsection{System Design}
+
+Details of the design here.
+
+\subsection{Algorithm}
+
+You can typeset algorithms with pseudo-code:
+
+\begin{lstlisting}[language=Python, caption={Example algorithm}]
+def example(n):
+    result = 0
+    for i in range(n):
+        result += i   # O(n)
+    return result
+\end{lstlisting}
+
+% -----------------------------------------------
+\section{Evaluation}
+\label{sec:evaluation}
+
+Present your experimental setup, metrics, datasets, and results.
+Tables and figures belong here.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Method} & \textbf{Accuracy (\%)} & \textbf{Time (s)} \\
+        \hline
+        Baseline        & 72.4                   & 0.32              \\
+        Proposed        & 89.1                   & 0.41              \\
+        \hline
+    \end{tabular}
+    \caption{Comparison of methods.}
+    \label{tab:results}
+\end{table}
+
+% -----------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+
+Interpret your results, discuss limitations, and consider directions
+for future work.
+
+% -----------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+Summarise the contributions and key findings of the paper.
+
+% -----------------------------------------------
+\bibliographystyle{plain}
+\bibliography{references}   % references.bib
+
+% If you prefer inline references, use thebibliography instead:
+%
+% \begin{thebibliography}{9}
+% \bibitem{knuth1997}
+%     D.~E. Knuth, \textit{The Art of Computer Programming}, Vol.~1.
+%     Addison-Wesley, 1997.
+% \end{thebibliography}
+
+\end{document}
+
