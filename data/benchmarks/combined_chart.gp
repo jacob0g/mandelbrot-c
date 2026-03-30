@@ -43,11 +43,11 @@ set grid xtics ytics lc rgb "#cccccc" lw 1
 set style line 1 lc rgb "#2c3e50" lw 2.5 pt 7  ps 1.2
 set style line 2 lc rgb "#2980b9" lw 2   pt 5  ps 1.0
 set style line 3 lc rgb "#e67e22" lw 2   pt 9  ps 1.0
-set style line 4 lc rgb "#c0392b" lw 2   pt 13 ps 1.0
+set style line 4 lc rgb "#29b93c" lw 2   pt 13 ps 1.0
 # Dashed lines for variance values
 set style line 5 lc rgb "#2980b9" lw 1.5 pt 4  ps 0.8 dt 2
 set style line 6 lc rgb "#e67e22" lw 1.5 pt 8  ps 0.8 dt 2
-set style line 7 lc rgb "#c0392b" lw 1.5 pt 12 ps 0.8 dt 2
+set style line 7 lc rgb "#29b93c" lw 1.5 pt 12 ps 0.8 dt 2
 
 set datafile separator "\t"
 set table $data

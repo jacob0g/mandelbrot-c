@@ -1,0 +1,2 @@
+# chunksize	total_runtime	avg_work	avg_wait	avg_comm	var_work	var_wait	var_comm
+5000	0.534325	0.403316	0.085891	0.045014	0.011310	0.000774	0.017892
