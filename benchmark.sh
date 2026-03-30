@@ -8,9 +8,10 @@ LOCAL_BENCHMARK_DIR="$PWD/data/benchmarks"
 COPY_RESULTS=false
 TASKS=()
 N="10" # Number of processes
+GRID_WIDTH="15000"
 
 help() {
-    echo "Usage: $0 [--copy-results] [--task [1][,2][,3]] [-n 10]"
+    echo "Usage: $0 [--copy-results] [--tasks [1][,2][,3]] [-n 10] [--grid-width 15000]"
 }
 
 # Arg Parsing
@@ -20,8 +21,12 @@ while [[ $# -gt 0 ]]; do
             COPY_RESULTS=true
             shift
             ;;
-        --task)
-            # comma-separated values: `--task 1,2` -> (1,2)
+        --grid-width)
+            GRID_WIDTH="$2"
+            shift 2
+            ;;
+        --tasks)
+            # comma-separated values: `--tasks 1,2` -> (1,2)
             IFS=',' read -ra TASKS <<< "$2"
             shift 2
             ;;
@@ -43,7 +48,7 @@ done
 
 if [[ ${#TASKS[@]} -gt 0 ]]; then
     # Build SSH command
-    SSH_CMD="cd $TARGET_DIR && make clean && make BENCHMARK=1"
+    SSH_CMD="cd $TARGET_DIR && make clean && make BENCHMARK=1 WIDTH=$GRID_WIDTH"
     
     for task in "${TASKS[@]}"; do
         SSH_CMD+=" && mkdir -p $TARGET_BENCHMARK_DIR/task_$task"

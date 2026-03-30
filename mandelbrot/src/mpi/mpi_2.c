@@ -1,5 +1,7 @@
 #define MAXITER     1000
+#ifndef N
 #define N	        15000
+#endif
 #define CHUNK_SIZE  2000 // default
 
 #define BENCHMARK_PATH "benchmarks/task_2"
@@ -155,22 +157,22 @@ static void master(int chunksize, int n_ranks) {
     STOP_TIMER(t_comm);
 
     START_TIMER(t_work);
-    int row = 0;
-    int col = 0;
+    // int row = 0;
+    // int col = 0;
     for (idx = 0; idx < half; idx++) {
         float val = logf((float)n[idx]) * inv_log_maxiter;
         x[idx] = val;
-        if (row >= 1 && row < N/2)
-            x[(N - row) * N + col] = val;
-        if (++col == N) { col = 0; row++; }
+        // if (row >= 1 && row < N/2)
+            // x[(N - row) * N + col] = val;
+        // if (++col == N) { col = 0; row++; }
     }
 
     // Mirror rows 1..N/2-1 to rows N-1..N/2+1
-    // for (int j = 1; j < N/2; j++) {
-    //     for (int i = 0; i < N; i++) {
-    //         x[(N - j) * N + i] = x[j * N + i];
-    //     }
-    // }
+    for (int j = 1; j < N/2; j++) {
+        for (int i = 0; i < N; i++) {
+            x[(N - j) * N + i] = x[j * N + i];
+        }
+    }
     STOP_TIMER(t_work);
 
 #ifdef FILE_IO

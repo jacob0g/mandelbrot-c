@@ -186,7 +186,6 @@ static void master(int chunksize, int n_ranks) {
         if (idx < half) {
             // Reply with more work
             send_work(&idx, src_rank, &send_reqs[src_idx]);
-            idx += chunksize;
         }
         else {
             send_done(src_rank, &send_reqs[src_idx]);
@@ -215,6 +214,12 @@ static void master(int chunksize, int n_ranks) {
             if (++col == N) { col = 0; row++; }
         }
         STOP_TIMER(t_work);
+
+        // Wait for slave to receive idx before updating
+        START_TIMER(t_wait);
+        MPI_Wait(&send_reqs[src_idx], MPI_STATUS_IGNORE);
+        STOP_TIMER(t_wait);
+        idx += chunksize;
 
         START_TIMER(t_comm);
         MPI_Irecv(&result_indexes[src_idx], 1, MPI_INT, src_rank, TAG_RESULT,

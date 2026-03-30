@@ -1,5 +1,7 @@
 #define MAXITER 1000
+#ifndef N
 #define N	    8000
+#endif
 
 #ifdef FILE_IO
 #include <stdio.h>

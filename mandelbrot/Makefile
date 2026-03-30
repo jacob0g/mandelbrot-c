@@ -20,6 +20,11 @@ ifdef BENCHMARK
 	CFLAGS += -DBENCHMARK
 endif
 
+# Grid Width Flag
+ifdef WIDTH
+	CFLAGS += -DN=$(WIDTH)
+endif
+
 # Append includes to CFLAGS
 CFLAGS += -I$(INCLUDE_DIR)
 

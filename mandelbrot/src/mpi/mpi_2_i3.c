@@ -4,7 +4,7 @@
 #endif
 #define CHUNK_SIZE  2000 // default
 
-#define BENCHMARK_PATH "benchmarks/task_2_i2"
+#define BENCHMARK_PATH "benchmarks/task_2_i3"
 
 // MPI Tags
 #define TAG_WORK    1
