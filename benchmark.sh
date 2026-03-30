@@ -46,7 +46,9 @@ if [[ ${#TASKS[@]} -gt 0 ]]; then
     SSH_CMD="cd $TARGET_DIR && make clean && make BENCHMARK=1"
     
     for task in "${TASKS[@]}"; do
-        SSH_CMD+=" && srun -n $N --time 1:0 build/mpi_$task"
+        SSH_CMD+=" && mkdir -p $TARGET_BENCHMARK_DIR/task_$task"
+        SSH_CMD+=" && sbatch scripts/mpi${task}_benchmark.sh"
+        # SSH_CMD+=" && srun -n $N --time 1:0 build/mpi_$task"
     done
 
     ./deploy.sh
