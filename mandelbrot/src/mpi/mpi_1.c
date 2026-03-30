@@ -1,5 +1,7 @@
 #define MAXITER     1000
-#define N           8000
+#ifndef N
+#define N           15000
+#endif
 
 #define BENCHMARK_PATH "benchmarks/task_1"
 
@@ -20,8 +22,6 @@ int main(int argc, char* argv[]) {
     int     *n, *_n;
     float   *x, *_zi, *_zj;
     float   ki, kj;
-    FILE    *fp;
-    short   green, blue;
     double  t_work, t_comm, t_wait;
     DECL_TIMER(t_work); DECL_TIMER(t_comm); DECL_TIMER(t_wait);
 
@@ -62,15 +62,15 @@ int main(int argc, char* argv[]) {
         i = _n[loop] % N;
         j = _n[loop] / N;
 
-        ki = (4.0 * (i - (float)N/2)) / N;
-        kj = (4.0 * (j - (float)N/2)) / N;
+        ki = (4.0f * (i - (float)N/2)) / N;
+        kj = (4.0f * (j - (float)N/2)) / N;
         _zi[loop] = ki;
         _zj[loop] = kj;
 
         k = 1;
-        while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4) && (k++ < MAXITER)) { 
+        while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4.0f) && (k++ < MAXITER)) { 
             float new_zi = (_zi[loop] * _zi[loop]) - (_zj[loop] * _zj[loop]) + ki;
-            _zj[loop] = 2 * _zi[loop] * _zj[loop] + kj;
+            _zj[loop] = 2.0f * _zi[loop] * _zj[loop] + kj;
             _zi[loop] = new_zi;
         }
       
@@ -89,8 +89,9 @@ int main(int argc, char* argv[]) {
     STOP_TIMER(t_comm);
 
     if (rank == 0) {
+        const float inv_log_maxiter = 1.0f / logf((float)MAXITER);
         for (loop = 0; loop < half; loop++) {
-            x[loop] = log((float)n[loop]) / log((float)MAXITER);
+            x[loop] = logf((float)n[loop]) * inv_log_maxiter;
         }
 
         // Mirror rows 1..N/2-1 to rows N-1..N/2+1
@@ -103,8 +104,10 @@ int main(int argc, char* argv[]) {
 /* ----------------------------------------------------------------*/
   
 #ifdef FILE_IO
+        short green, blue;
+
         printf("Writing mandelbrot.ppm\n");
-        fp = fopen ("mandelbrot.ppm", "w");
+        FILE *fp = fopen ("mandelbrot.ppm", "w");
         fprintf (fp, "P6\n%4d %4d\n255\n", N, N);
         
         for (loop = 0; loop < N*N; loop++) { 
