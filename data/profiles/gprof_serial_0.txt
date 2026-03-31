@@ -1,0 +1,17 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+ 85.52     10.63    10.63                             main (serial_0.c:29 @ 1149)
+  4.99     11.25     0.62                             _init
+  3.62     11.70     0.45                             main (serial_0.c:30 @ 1117)
+  2.05     11.96     0.26                             main (serial_0.c:30 @ 110d)
+  2.05     12.21     0.26                             main (serial_0.c:29 @ 1113)
+  1.13     12.35     0.14                             main (serial_0.c:29 @ 1204)
+  0.16     12.37     0.02                             main (serial_0.c:32 @ 117e)
+  0.16     12.39     0.02                             main (serial_0.c:26 @ 11e6)
+  0.12     12.40     0.01                             main (serial_0.c:26 @ 11b9)
+  0.08     12.41     0.01                             main (serial_0.c:29 @ 10f3)
+  0.08     12.43     0.01                             main (serial_0.c:26 @ 119f)
+  0.04     12.43     0.01                             main (serial_0.c:23 @ 11cb)
