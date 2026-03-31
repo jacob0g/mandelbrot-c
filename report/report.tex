@@ -5,19 +5,21 @@
 \usepackage{newtxtext, newtxmath}
 \usepackage{amsmath}
 \usepackage{graphicx}
-% \usepackage{minipage}
 \usepackage{caption}
-% \usepackage{float}
 \usepackage{hyperref}
 \usepackage{cite}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{float}
 
 % Figure Path
 \graphicspath{ {./figures/} }
 
 % Code listing style
 \lstset{
+    language=C,
     basicstyle=\ttfamily\small,
     keywordstyle=\color{blue},
     commentstyle=\color{gray},
@@ -90,7 +92,7 @@ The Mandelbrot set is a famous fractal pattern produced by iterating the complex
     Z_{n+1} = Z_{n}^{2} + C
 \end{equation}
 where $Z_{n}$ denotes the complex value after $n$ iterations, and $C$ 
-denotes the complex point. After $n = N$ iterations, where $N$ is 
+denotes a point on the complex plane. After $n = N$ iterations, where $N$ is 
 defined as an upper-bound for number of iterations, points which 
 have not diverged form the Mandelbrot set.
 
@@ -110,35 +112,125 @@ count is then used to assign a colour to the pixel representing that point, thus
 rendering the set.
 \end{minipage}
 \hfill
-
-% \fbox
-% {
-% \begin{minipage}[c][0.6\linewidth][c]{0.6\linewidth}
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.5\linewidth]{mandelbrot.jpg}
     \captionof{figure}{Render of the Mandelbrot Set}
     \label{fig:mandelbrot}
 \end{figure}    
-% \end{minipage}
-% }
 
 \end{abstract}
 
 % -----------------------------------------------
 \section{Introduction}
 \label{sec:intro}
-
 While the scope of this paper focuses on the parallel implementations for computing 
-Mandelbrot set points, the following optimisations should be acknowledged separately as 
-they apply to the serial algorithm, and are therefore common to all MPI implementations. 
+the Mandelbrot set, the following serial optimisations are acknowledged as they 
+supplement later MPI implementations. 
 
-\textbf{Breaking up "complex" number types into parametric values} \\
-Complex values are iterated in parametric form by the following algorithm:
-\begin{lstlisting}[language=C, caption={Parametric Mandelbrot set Algorithm}]
-for (loop = 0; loop < N*N; loop++) {
-    i = loop % N;
-    j = loop / N;
+\subsection{Initial Implementation using Complex Float (serial\_0)}
+
+\begin{lstlisting}[caption={Complex Float Algorithm}]
+k = 1;
+while ((cabsf(z) <= 2.0f) && (k++ < MAXITER)) 
+    z = z * z + kappa;  
+\end{lstlisting}
+
+\subsection{Replacing Complex Float with Parametric Primitives (serial\_1)}
+
+\begin{lstlisting}[caption={Parametric Form Algorithm}]
+k = 1;
+while (((zi * zi) + (zj * zj) <= 4.0f) && (k++ < MAXITER)) { 
+    new_zi = (zi * zi) - (zj * zj) + ki;
+    zj = 2.0f * zi * zj + kj;
+    zi = new_zi;
+}
+\end{lstlisting}
+
+As shown by Table~\ref{tab:serial_gprof}, 87.5\% of \texttt{serial\_0}'s execution 
+time is spent on line 29, which contains the \texttt{cabsf(z)} call to compute:
+
+\begin{equation*}
+    |z| = \sqrt{z_r^2 + z_i^2}
+\end{equation*}
+
+The \texttt{sqrtf()} operation is computationally expensive, requiring either 
+iterative approximation or specialised hardware instructions with high 
+latency. Additionally, \texttt{serial\_0}'s low IPC of $0.95$ in 
+Table~\ref{tab:serial_perf} suggests the CPU pipeline is frequently stalled 
+on \texttt{sqrt()}, preventing effective instruction-level parallelism.
+
+As such, \texttt{serial\_1} uses the equivalent comparison 
+\[z_r^2 + z_i^2 \leq 4.0\] to avoid the square root entirely.
+
+
+\subsection{Mirroring about the real-axis}
+Due to the symmetry of the Mandelbrot set about the real number axis, points for 
+only one half must be iterated; the other half can simply mirror the results. This 
+led to the memory usage to be roughly halved, and  
+
+
+Table~\ref{tab:serial_gprof} shows the percentage of execution time attributed to each source line in the hot loop.
+
+\begin{table}[h]
+\centering
+\caption{gprof line-level profiling results}
+\label{tab:serial_gprof}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Source Line} & \textbf{serial\_0} & \textbf{serial\_1} & \textbf{serial\_2} \\
+\midrule
+Line 29: while condition (\texttt{cabsf}) & 87.83\% & --- & --- \\
+Line 30: \texttt{z = z*z + kappa} / while condition & 5.83\% & 73.58\% & 69.99\% \\
+Line 31: \texttt{new\_zi} calculation & --- & 3.11\% & 6.18\% \\
+Line 32: \texttt{zj} update & 0.16\% & 13.62\% & 15.45\% \\
+Line 36: \texttt{logf()} normalization & --- & 9.32\% & 7.64\% \\
+\midrule
+\textbf{Total self time} & \textbf{12.43s} & \textbf{5.47s} & \textbf{2.75s} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:serial_perf} presents the hardware-level metrics collected via \texttt{perf stat}.
+
+\begin{table}[h]
+\centering
+\caption{perf stat hardware performance metrics}
+\label{tab:serial_perf}
+\sisetup{group-separator={,}, group-minimum-digits=4}
+\begin{tabular}{@{}lSSS@{}}
+\toprule
+\textbf{Metric} & \textbf{serial\_0} & \textbf{serial\_1} & \textbf{serial\_2} \\
+\midrule
+Cycles (billions) & 94.9 & 13.6 & 6.9 \\
+Instructions (billions) & 89.9 & 28.4 & 14.3 \\
+IPC (instructions/cycle) & 0.95 & 2.08 & 2.08 \\
+Wall time (seconds) & 38.2 & 5.5 & 2.8 \\
+\midrule
+\textbf{Speedup vs serial\_0} & {1.0x} & {6.9x} & {13.6x} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% -----------------------------------------------
+\section{Static Decomposition (Block Partitioning)}
+\label{sec:static_block}
+
+\begin{lstlisting}[caption={Block Partitioning Algorithm}]
+if (rank == 0) {
+    for (loop = 0; loop < half; loop++) {
+        n[loop] = loop;
+    }
+}
+
+// Scatter blocks of points
+// ...
+
+// Iterate points in block
+for (loop = 0; loop < chunksize; loop++) {
+    i = _n[loop] % N;
+    j = _n[loop] / N;
 
     ki = zi = (4.0f * (i - (float)N/2)) / N;
     kj = zj = (4.0f * (j - (float)N/2)) / N;
@@ -149,39 +241,22 @@ for (loop = 0; loop < N*N; loop++) {
         zj = 2.0f * zi * zj + kj;
         zi = new_zi;
     }
-  
-    x[loop] = logf((float)k) / logf((float)MAXITER);
+    _x[loop] = logf((float)k) * inv_log_maxiter;
 }
+
+// Gather x
+// ...
 \end{lstlisting}
-Most notably, the loop conditional only compares the complex component's 
-squared sum to $4$, as opposed to comparing \verb|cabs(z)| and computing the 
-square root of the complex component's squared sum.
 
-Additionally, replacing the complex type with real number types may yield faster 
-arithmetic operations from the reduced overhead and function calls in the "hot-loop"; 
-however, it is difficult to ascertain given the how effectively modern C compilers 
-can optimise arithmetic. \\
-
-\textbf{Mirroring about the real-axis}
-Due to the symmetry of the Mandelbrot set about the real number axis, points for 
-only one half must be iterated; the other half can simply mirror the results. This 
-led to the memory usage to be roughly halved, and  
 
 % -----------------------------------------------
-\section{Background}
-\label{sec:background}
-
-Summarise related work and provide the theoretical or technical
-context that the reader needs to understand your contribution.
-
-% -----------------------------------------------
-\section{Methodology}
-\label{sec:methodology}
+\section{Dynamic Decomposition (Master-Worker)}
+\label{sec:dynamic_mw}
 
 Describe your approach, design decisions, algorithms, or system
 architecture. Use sub-sections as needed.
 
-\subsection{System Design}
+\subsection{Static Decomposition (Cyclic Partitioning)}
 
 Details of the design here.
 

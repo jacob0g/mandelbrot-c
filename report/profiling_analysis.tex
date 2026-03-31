@@ -1,0 +1,154 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+
+\lstset{
+    language=C,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true
+}
+
+\title{Performance Analysis: Complex Float vs Parametric Form\\for Mandelbrot Set Computation}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+This analysis compares two implementations of the Mandelbrot set escape-time algorithm:
+\begin{itemize}
+    \item \textbf{serial\_0}: Uses C99 \texttt{float complex} type with \texttt{cabsf()} for magnitude calculation
+    \item \textbf{serial\_1}: Uses explicit parametric form with separate \texttt{float} variables for real and imaginary components
+\end{itemize}
+
+Both implementations compute a $4000 \times 4000$ grid with a maximum of 1000 iterations per point.
+
+\section{Implementation Comparison}
+
+\subsection{Complex Float Implementation (serial\_0)}
+
+\begin{lstlisting}[caption={Hot loop using complex float},firstnumber=28]
+k = 1;
+while ((cabsf(z) <= 2.0f) && (k++ < MAXITER)) 
+    z = z * z + kappa;
+\end{lstlisting}
+
+\subsection{Parametric Form Implementation (serial\_1)}
+
+\begin{lstlisting}[caption={Hot loop using parametric form},firstnumber=29]
+k = 1;
+while (((zi * zi) + (zj * zj) <= 4.0f) && (k++ < MAXITER)) { 
+    new_zi = (zi * zi) - (zj * zj) + ki;
+    zj = 2.0f * zi * zj + kj;
+    zi = new_zi;
+}
+\end{lstlisting}
+
+\section{Profiling Methodology}
+
+Programs were compiled with \texttt{gcc -O3 -g -pg} and profiled using:
+\begin{itemize}
+    \item \textbf{gprof} with line-level annotation (\texttt{-l} flag) to attribute execution time to individual source lines
+    \item \textbf{perf stat} to measure hardware performance counters (cycles, instructions, cache misses)
+\end{itemize}
+
+\section{Results}
+
+\subsection{gprof Line-Level Analysis}
+
+Table~\ref{tab:gprof} shows the percentage of execution time attributed to each source line in the hot loop.
+
+\begin{table}[h]
+\centering
+\caption{gprof line-level profiling results}
+\label{tab:gprof}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Source Line} & \textbf{serial\_0} & \textbf{serial\_1} & \textbf{serial\_2} \\
+\midrule
+Line 29: while condition (\texttt{cabsf}) & 87.83\% & --- & --- \\
+Line 30: \texttt{z = z*z + kappa} / while condition & 5.83\% & 73.58\% & 69.99\% \\
+Line 31: \texttt{new\_zi} calculation & --- & 3.11\% & 6.18\% \\
+Line 32: \texttt{zj} update & 0.16\% & 13.62\% & 15.45\% \\
+Line 36: \texttt{logf()} normalization & --- & 9.32\% & 7.64\% \\
+\midrule
+\textbf{Total self time} & \textbf{12.43s} & \textbf{5.47s} & \textbf{2.75s} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hardware Performance Counters}
+
+Table~\ref{tab:perf} presents the hardware-level metrics collected via \texttt{perf stat}.
+
+\begin{table}[h]
+\centering
+\caption{perf stat hardware performance metrics}
+\label{tab:perf}
+\sisetup{group-separator={,}, group-minimum-digits=4}
+\begin{tabular}{@{}lSSS@{}}
+\toprule
+\textbf{Metric} & \textbf{serial\_0} & \textbf{serial\_1} & \textbf{serial\_2} \\
+\midrule
+Cycles (billions) & 94.9 & 13.6 & 6.9 \\
+Instructions (billions) & 89.9 & 28.4 & 14.3 \\
+IPC (instructions/cycle) & 0.95 & 2.08 & 2.08 \\
+Wall time (seconds) & 38.2 & 5.5 & 2.8 \\
+\midrule
+\textbf{Speedup vs serial\_0} & {1.0x} & {6.9x} & {13.6x} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Analysis}
+
+\subsection{Why Complex Float is Slow}
+
+The gprof results reveal that \textbf{87.8\% of serial\_0's execution time} is spent on line 29, which contains the \texttt{cabsf(z)} call. This function computes:
+\[
+|z| = \sqrt{z_r^2 + z_i^2}
+\]
+
+The \texttt{sqrtf()} operation is computationally expensive, requiring either iterative approximation or specialized hardware instructions with high latency. Furthermore, the comparison \texttt{cabsf(z) <= 2.0f} could equivalently be written as $z_r^2 + z_i^2 \leq 4.0$, avoiding the square root entirely.
+
+The low IPC of \textbf{0.95} indicates that the CPU pipeline is frequently stalled waiting for the \texttt{sqrtf()} result, preventing effective instruction-level parallelism.
+
+\subsection{Why Parametric Form is Faster}
+
+The parametric implementation achieves a \textbf{6.9x speedup} through two key optimizations:
+
+\begin{enumerate}
+    \item \textbf{Elimination of \texttt{sqrtf()}}: The escape condition \texttt{zi*zi + zj*zj <= 4.0f} avoids the expensive square root by comparing squared magnitudes directly.
+    
+    \item \textbf{Explicit arithmetic enables better optimization}: The compiler can more effectively schedule the simple floating-point multiply-add operations, achieving an IPC of \textbf{2.08}---more than double that of the complex version.
+\end{enumerate}
+
+The total instruction count drops from 89.9B to 28.4B (\textbf{3.2x reduction}), and each instruction executes faster due to improved pipelining.
+
+\subsection{Symmetry Optimization (serial\_2)}
+
+The serial\_2 implementation adds an additional \textbf{2x speedup} by exploiting the Mandelbrot set's symmetry about the real axis. Since $f(z) = f(\bar{z})$, only half the points need to be computed. This halves both the instruction count and execution time while maintaining identical IPC.
+
+\section{Conclusion}
+
+The parametric form implementation outperforms the complex float version by \textbf{6.9x} due to:
+\begin{itemize}
+    \item Avoiding the expensive \texttt{sqrtf()} call hidden inside \texttt{cabsf()}
+    \item Enabling better instruction-level parallelism (IPC: 2.08 vs 0.95)
+    \item Reducing total instructions by 3.2x
+\end{itemize}
+
+For performance-critical numerical code, explicit arithmetic on primitive types often outperforms abstracted types like \texttt{complex}, even when the latter produces cleaner source code.
+
+\end{document}
