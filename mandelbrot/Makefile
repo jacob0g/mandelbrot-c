@@ -8,7 +8,8 @@ MPI_DIR = $(SRC_DIR)/mpi
 # Compiler Flags
 CC      = gcc
 MPICC   = mpicc
-CFLAGS = -g -O3 -lm
+CFLAGS  = -O3 -Wall 
+LDLIBS  = -lm
 
 # File IO Flag
 ifdef FILE_IO
@@ -18,6 +19,11 @@ endif
 # Benchmark Flag
 ifdef BENCHMARK
 	CFLAGS += -DBENCHMARK
+endif
+
+# gprof Profiling Flag
+ifdef GPROF
+	CFLAGS += -g -pg
 endif
 
 # Grid Width Flag
@@ -45,10 +51,10 @@ serial: $(SERIAL_BINS)
 mpi: $(MPI_BINS)
 
 $(BUILD_DIR)/serial_%: $(SERIAL_DIR)/serial_%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(LDLIBS)
 
 $(BUILD_DIR)/mpi_%: $(MPI_DIR)/mpi_%.c | $(BUILD_DIR)
-	$(MPICC) $(CFLAGS) $< -o $@
+	$(MPICC) $(CFLAGS) $< -o $@ $(LDLIBS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
