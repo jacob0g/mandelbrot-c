@@ -83,29 +83,45 @@
 
 \begin{abstract}
 \vspace{2em}
-\begin{minipage}{0.50\linewidth}
+\begin{minipage}{1.0\linewidth}
 \vspace{-2em}
-The problem that we are trying to solve is that of rendering the Mandelbrot set, a
-famous fractal pattern produced by iterating the complex quadratic recurrence relation:
-\begin{equation}
+The Mandelbrot set is a famous fractal pattern produced by iterating the complex quadratic recurrence relation:
+\begin{equation}\label{eq:set}
     Z_{n+1} = Z_{n}^{2} + C
 \end{equation}
+where $Z_{n}$ denotes the complex value after $n$ iterations, and $C$ 
+denotes the complex point. After $n = N$ iterations, where $N$ is 
+defined as an upper-bound for number of iterations, points which 
+have not diverged form the Mandelbrot set.
 
-where $Z_{n}$ is the value of the iteration after $n$ iterations, and $C$ is a complex
-number representing a point in the complex plane. The value of $Z_{0}$ is usually taken
-to be zero. The iteration is repeated until the magnitude of $Z_{n}$ exceeds $2$ (at
-which point the sequence diverges), or a maximum number of iterations is reached (at
+It can be assumed that points which exceed the complex-plane origin 
+by a radius of $2$ will eventually diverge, yielding the 
+following axiom for computing the Mandelbrot set $M$:
+\begin{equation}\label{eq:axiom}
+    \mathbb{M} = \{\;c \in \mathbb{C},\;\sup_{n \in \mathbb{N}} |Z_{n}| \leq 2,\;\text{where}\;Z_{0}=0\;\text{and}\;Z_{n+1}=Z_{n}^{2}+c\;\}
+\end{equation}
+
+. Points of the Mandelbrot set will inevitably  $N$ 
+
+It can be shown that values of $Z_{n}$ which exceed $2$ will diverge, as such 
+The value of $Z_{0}$ is usually taken to be zero. The iteration is repeated until the magnitude of $Z_{n}$ ($|Z_{n}|$) exceeds $2$ (at which point the sequence diverges), or a maximum number of iterations is reached (at
 which point the point is considered to be part of the Mandelbrot set). The iteration
 count is then used to assign a colour to the pixel representing that point, thus
 rendering the set.
 \end{minipage}
 \hfill
-\begin{minipage}{0.45\linewidth}
+
+% \fbox
+% {
+% \begin{minipage}[c][0.6\linewidth][c]{0.6\linewidth}
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\linewidth]{mandelbrot.jpg}
+    \includegraphics[width=0.5\linewidth]{mandelbrot.jpg}
     \captionof{figure}{Render of the Mandelbrot Set}
     \label{fig:mandelbrot}
-\end{minipage}
+\end{figure}    
+% \end{minipage}
+% }
 
 \end{abstract}
 
@@ -113,9 +129,43 @@ rendering the set.
 \section{Introduction}
 \label{sec:intro}
 
-Introduce the problem and motivate why it matters. Outline the
-contributions of the paper and describe how the rest of the document
-is organised.
+While the scope of this paper focuses on the parallel implementations for computing 
+Mandelbrot set points, the following optimisations should be acknowledged separately as 
+they apply to the serial algorithm, and are therefore common to all MPI implementations. 
+
+\textbf{Breaking up "complex" number types into parametric values} \\
+Complex values are iterated in parametric form by the following algorithm:
+\begin{lstlisting}[language=C, caption={Parametric Mandelbrot set Algorithm}]
+for (loop = 0; loop < N*N; loop++) {
+    i = loop % N;
+    j = loop / N;
+
+    ki = zi = (4.0f * (i - (float)N/2)) / N;
+    kj = zj = (4.0f * (j - (float)N/2)) / N;
+
+    k = 1;
+    while (((zi * zi) + (zj * zj) <= 4.0f) && (k++ < MAXITER)) { 
+        new_zi = (zi * zi) - (zj * zj) + ki;
+        zj = 2.0f * zi * zj + kj;
+        zi = new_zi;
+    }
+  
+    x[loop] = logf((float)k) / logf((float)MAXITER);
+}
+\end{lstlisting}
+Most notably, the loop conditional only compares the complex component's 
+squared sum to $4$, as opposed to comparing \verb|cabs(z)| and computing the 
+square root of the complex component's squared sum.
+
+Additionally, replacing the complex type with real number types may yield faster 
+arithmetic operations from the reduced overhead and function calls in the "hot-loop"; 
+however, it is difficult to ascertain given the how effectively modern C compilers 
+can optimise arithmetic. \\
+
+\textbf{Mirroring about the real-axis}
+Due to the symmetry of the Mandelbrot set about the real number axis, points for 
+only one half must be iterated; the other half can simply mirror the results. This 
+led to the memory usage to be roughly halved, and  
 
 % -----------------------------------------------
 \section{Background}
