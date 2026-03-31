@@ -1,5 +1,5 @@
 #define MAXITER 1000
-#define N	    2000
+#define N	    4000
 
 #ifdef FILE_IO
 #include <stdio.h>
@@ -12,57 +12,40 @@
 
 int main() {
     int	   i, j, k, loop;
-    short  green, blue;
-    float  *x, *zi, *zj;
-    float  ki, kj;
+    float  *x;
+    float  ki, kj, zi, zj, new_zi;
     int    half = (N/2 + 1) * N;
 
-#ifdef FILE_IO
-    FILE   *fp;
-#endif
-
-    zi = (float*)malloc(half * sizeof(float));
-    zj = (float*)malloc(half * sizeof(float));
-    x = (float*)malloc(N*N * sizeof(float));
+    x = (float*)malloc(half * sizeof(float));
   
-    // Initialise z
+    // Iterate points
     for (loop = 0; loop < half; loop++) {
         i = loop % N;
         j = loop / N;
 
-        zi[loop] = (4.0 * (i - (float)N/2)) / N;
-        zj[loop] = (4.0 * (j - (float)N/2)) / N;
-    }
-
-    for (loop = 0; loop < half; loop++) {
-        ki = zi[loop];
-        kj = zj[loop];
+        ki = zi = (4.0f * (i - (float)N/2)) / N;
+        kj = zj = (4.0f * (j - (float)N/2)) / N;
 
         k = 1;
-        while (((zi[loop] * zi[loop]) + (zj[loop] * zj[loop]) <= 4) && (k++ < MAXITER)) { 
-            float new_zi = (zi[loop] * zi[loop]) - (zj[loop] * zj[loop]) + ki;
-	        zj[loop] = 2 * zi[loop] * zj[loop] + kj;
-	        zi[loop] = new_zi;
+        while (((zi * zi) + (zj * zj) <= 4.0f) && (k++ < MAXITER)) { 
+            new_zi = (zi * zi) - (zj * zj) + ki;
+	        zj = 2.0f * zi * zj + kj;
+	        zi = new_zi;
         }
 	  
-	    x[loop] = log((float)k) / log((float)MAXITER);
+	    x[loop] = logf((float)k) / logf((float)MAXITER);
     }
-
-    // Mirror rows 1..N/2-1 to rows N-1..N/2+1
-    for (j = 1; j < N/2; j++) {
-        for (i = 0; i < N; i++) {
-            x[(N - j) * N + i] = x[j * N + i];
-        }
-    }
-
+    
 /* ----------------------------------------------------------------*/
-  
+ 
 #ifdef FILE_IO
     printf("Writing mandelbrot.ppm\n");
-    fp = fopen ("mandelbrot.ppm", "w");
+    FILE *fp = fopen ("mandelbrot.ppm", "w");
+    short  green, blue;
     fprintf (fp, "P6\n%4d %4d\n255\n", N, N);
-    
-    for (loop = 0; loop < N*N; loop++) { 
+
+    // Write top half
+    for (loop = 0; loop < half; loop++) { 
 	    if (x[loop] < 0.5) {
 	        green = (int)(2 * x[loop] * 255);
             fprintf(fp, "%c%c%c", 255 - green, green, 0);
@@ -71,13 +54,23 @@ int main() {
             fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
 	    }
     }
-    
+    // Write bottom half (top half mirrored)
+    for (j = N/2 - 1; j >= 1; j--) {
+        for (i = 0; i < N; i++) {
+            loop = j * N + i;
+            if (x[loop] < 0.5) {
+                green = (int)(2 * x[loop] * 255);
+                fprintf(fp, "%c%c%c", 255 - green, green, 0);
+            } else {
+                blue = (int)(2 * x[loop] * 255 - 255);
+                fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
+            }
+        }
+    }
     fclose(fp);
 #endif
 
 /* ----------------------------------------------------------------*/
 
-    free(zi);
-    free(zj);
     free(x);
 }
