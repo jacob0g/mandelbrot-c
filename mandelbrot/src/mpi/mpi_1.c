@@ -5,7 +5,9 @@
 
 #define BENCHMARK_PATH "benchmarks/task_1"
 
+#if defined(FILE_IO) || defined(BENCHMARK)
 #include <stdio.h>
+#endif
 #include <stdlib.h>
 #include <mpi.h>
 #include <math.h>
@@ -20,8 +22,8 @@ int main(int argc, char* argv[]) {
 
     int     i, j, k, loop;
     int     *n, *_n;
-    float   *x, *_zi, *_zj;
-    float   ki, kj;
+    float   *x, *_x;
+    float   ki, kj, zi, zj, new_zi;
     double  t_work, t_comm, t_wait;
     DECL_TIMER(t_work); DECL_TIMER(t_comm); DECL_TIMER(t_wait);
 
@@ -32,10 +34,11 @@ int main(int argc, char* argv[]) {
 
     int half = (N/2 + 1) * N;
     int chunksize = half / n_ranks;
+    const float inv_log_maxiter = 1.0f / logf((float)MAXITER);
 
-    // Root initialises n
+    // Root initialises point indexes
     if (rank == 0) {
-        x = (float*)malloc(N*N * sizeof(float));
+        x = (float*)malloc(half * sizeof(float));
         n = (int*)malloc(half * sizeof(int));
       
         for (loop = 0; loop < half; loop++) {
@@ -43,9 +46,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Local z points
-    _zi = (float*)malloc(chunksize * sizeof(float));
-    _zj = (float*)malloc(chunksize * sizeof(float));
+    // Allocate local buffers
+    _x = (float*)malloc(chunksize * sizeof(float));
     _n = (int*)malloc(chunksize * sizeof(int));
 
     START_TIMER(t_wait);
@@ -62,19 +64,17 @@ int main(int argc, char* argv[]) {
         i = _n[loop] % N;
         j = _n[loop] / N;
 
-        ki = (4.0f * (i - (float)N/2)) / N;
-        kj = (4.0f * (j - (float)N/2)) / N;
-        _zi[loop] = ki;
-        _zj[loop] = kj;
+        ki = zi = (4.0f * (i - (float)N/2)) / N;
+        kj = zj = (4.0f * (j - (float)N/2)) / N;
 
         k = 1;
-        while (((_zi[loop] * _zi[loop]) + (_zj[loop] * _zj[loop]) <= 4.0f) && (k++ < MAXITER)) { 
-            float new_zi = (_zi[loop] * _zi[loop]) - (_zj[loop] * _zj[loop]) + ki;
-            _zj[loop] = 2.0f * _zi[loop] * _zj[loop] + kj;
-            _zi[loop] = new_zi;
+        while (((zi * zi) + (zj * zj) <= 4.0f) && (k++ < MAXITER)) { 
+            new_zi = (zi * zi) - (zj * zj) + ki;
+            zj = 2.0f * zi * zj + kj;
+            zi = new_zi;
         }
       
-        _n[loop] = k;
+        _x[loop] = logf((float)k) * inv_log_maxiter;
     }
     STOP_TIMER(t_work);
 
@@ -85,21 +85,10 @@ int main(int argc, char* argv[]) {
 
     // Compile number of iterations
     START_TIMER(t_comm);
-    MPI_Gather(_n, chunksize, MPI_INT, n, chunksize, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(_x, chunksize, MPI_FLOAT, x, chunksize, MPI_FLOAT, 0, MPI_COMM_WORLD);
     STOP_TIMER(t_comm);
 
     if (rank == 0) {
-        const float inv_log_maxiter = 1.0f / logf((float)MAXITER);
-        for (loop = 0; loop < half; loop++) {
-            x[loop] = logf((float)n[loop]) * inv_log_maxiter;
-        }
-
-        // Mirror rows 1..N/2-1 to rows N-1..N/2+1
-        for (j = 1; j < N/2; j++) {
-            for (i = 0; i < N; i++) {
-                x[(N - j) * N + i] = x[j * N + i];
-            }
-        }
 
 /* ----------------------------------------------------------------*/
   
@@ -110,7 +99,8 @@ int main(int argc, char* argv[]) {
         FILE *fp = fopen ("mandelbrot.ppm", "w");
         fprintf (fp, "P6\n%4d %4d\n255\n", N, N);
         
-        for (loop = 0; loop < N*N; loop++) { 
+        // Write top half
+        for (loop = 0; loop < half; loop++) { 
             if (x[loop] < 0.5) {
                 green = (int)(2 * x[loop] * 255);
                 fprintf(fp, "%c%c%c", 255 - green, green, 0);
@@ -119,7 +109,19 @@ int main(int argc, char* argv[]) {
                 fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
             }
         }
-        
+        // Write bottom half (top half mirrored)
+        for (j = N/2 - 1; j >= 1; j--) {
+            for (i = 0; i < N; i++) {
+                loop = j * N + i;
+                if (x[loop] < 0.5) {
+                    green = (int)(2 * x[loop] * 255);
+                    fprintf(fp, "%c%c%c", 255 - green, green, 0);
+                } else {
+                    blue = (int)(2 * x[loop] * 255 - 255);
+                    fprintf(fp, "%c%c%c", 0, 255 - blue, blue);
+                }
+            }
+        }       
         fclose(fp);
 #endif
 
@@ -129,9 +131,8 @@ int main(int argc, char* argv[]) {
         free(x);
     }
 
-    free(_zi);
-    free(_zj);
     free(_n);
+    free(_x);
 
 #ifdef BENCHMARK
     // Collate Benchmark Times
