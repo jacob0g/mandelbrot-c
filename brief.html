@@ -1,0 +1,236 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"></head><body>
+
+   <title>High-Performance Computing - MPI</title>
+
+<h2> The Mandelbrot Set</h2>
+
+<table width="95%">
+<tbody><tr>
+<td>
+Consider the iterative sequence<br>
+&nbsp; &nbsp; &nbsp;
+&nbsp; &nbsp; &nbsp;
+z<sub>i+1</sub>=(z<sub>i</sub>)<sup>2</sup>+κ<br>
+where z and κ are complex numbers, and 
+z<sub>0</sub>=κ.<br><br>
+When the magnitude of κ is large, this sequence quickly diverges (i.e. 
+the magnitude of z goes to ∞).  The 
+<a href="https://en.wikipedia.org/wiki/Mandelbrot_set">Mandelbrot set</a> 
+is defined as the set of values of κ for which this sequence remains 
+bounded.
+<p></p>
+</td>
+</tr></tbody></table>
+
+<p>
+It is known that the Mandelbrot set is bounded by the disk
+|κ|&lt;2, and therefore we only need to iterate until
+|z<sub>i</sub>|&gt;2 to determine that a point is not in
+the Mandelbrot set.
+</p>
+
+<p>
+The following serial code 
+(<a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot.f90">mandelbrot.f90</a> -
+ <a href="https://atom.curtin.edu.au/hpc/Liam/mpi2/mandelbrot.c">mandelbrot.c</a>)
+discretises the complex region 
+−2≤Re(z)≤2 and 
+−2≤Im(z)≤2, and computes a 2D array containing the number of 
+iterations required to reach the condition |z|&gt;2, with an upper bound 
+of 1000 iterations.  The number of iterations is converted into false colour 
+and written to an image file <tt><b>mandelbrot.ppm</b></tt>.  Compile the 
+program in the usual way, run the executable by typing <tt><b>./main</b></tt>,
+and wait for about 20 seconds.  To view the image, type
+</p>
+
+
+<h2 id="assignment">Assessable Tasks</h2>
+
+<p>
+Your assessable tasks involve three different approaches to MPI
+parallelization of the Mandelbrot problem:
+</p>
+
+<ol>
+<li> Using the second of the two Mandelbrot codes, rewrite the program to use 
+     MPI with 10 processes on an 8000x8000 system.  Use static decomposition 
+     (block partioning) by dividing the complex plane into 10 rectangular 
+     strips, and have each process perform the computation for each strip.  
+     When the calculation phase is finished, use <tt><b>MPI_GATHER</b></tt> to 
+     return all data to the root process. Use the <tt><b>diff</b></tt> command 
+     to confirm that the PPM file is identical to the serial version. 
+     <br><br>
+
+     Once you have confirmed that the output is correct, comment out the 
+     code that writes the PPM file, and use <tt><b>MPI_WTIME</b></tt> and 
+     <tt><b>MPI_BARRIER</b></tt> to determine the time that each process 
+     spends on computation, waiting and communication.  Comment on the 
+     significant load imbalance between the various processes. Compare the
+     performance to the serial version.
+     <br><br>
+
+</li><li> Modify your program from Task 1 to use dynamic decomposition in a 
+     master-worker parallelism with 
+     arbitrary <tt><b>chunksize</b></tt> and number of workers. 
+     Vary the chunksize, and note the effect on the speedup relative to the 
+     original serial version.  As before, use <tt><b>diff</b></tt> to confirm 
+     that the 
+     output is correct. Comment out the I/O routine and determine the time that
+     each worker spends on computation and communication for a chunksize of 
+     100,000 and 10 workers. How does this affect the load balancing?
+     <br><br>
+
+     Using <tt><b>gnuplot</b></tt> or similar, produce a graph of total 
+     execution time vs chunksize, and thus determine the optimum chunksize 
+     with 10 workers (hint: it will be roughly constant over a fairly wide 
+     range of values). Explain what happens for very large and very small 
+     values of the chunksize. Check that you recover the same timing result 
+     as Task 1 when the chunksize is one-tenth of the total amount of work.  
+     <br><br>
+
+     Your code should work even when the chunksize does not evenly divide N*N.
+     However, it is perfectly acceptable for this task to allow one of your workers
+     to work on pixels outside the bounds of the main pixel grid to allow all workers
+     to be given chunks of equal size. All that matters is that those out-of-bounds pixels
+     are not printed to the image file, and that your solution does not suffer from 
+     memory-access faults. Compile your C code with the extra flags
+     <b><tt>-g -fsanitize=address</tt></b> to check for memory access faults.
+     <br><br>
+
+     <em>
+     Note: Do not use <tt><b>MPI_GATHER</b></tt> or any other type of 
+     collective communication for Task 2.</em>
+     <br><br>
+
+</li><li> As a final task, repeat the static decomposition exercise in Task 1 
+     using a 1D cyclic partition instead of block partitioning. Compare your 
+     results with those from Task 1, and comment on what the best 
+     MPI parallelism strategy is for the Mandelbrot set.
+</li></ol>
+
+<p></p>
+
+<!-- ********************************************************** -->
+
+<h2>Guidelines and Advice</h2>
+
+<p>
+The report is due on Thursday March 26th. It is to be written in a single-column 
+format and should be prepared using a word-processor such as LaTeX, Word or 
+Pages. Email a ZIP file of your source code and a PDF version of
+your report to <a href="mailto:liam.scarlett@curtin.edu.au">Liam Scarlett</a>. 
+The name of the PDF should be <b>FirstName.LastName.pdf</b>.
+Make sure that your name and SID are clearly stated on the first page of the
+PDF (e.g. in the header). There is no need to make waffly reports with 
+cover pages, table of contents, lists of figures, etc. Strive for brevity.
+A summary of the rationale for your grade, and a breakdown of the grades for
+each task will be sent to your Curtin email address.
+</p>
+
+<p>
+The report should be precise, understandable and concise. It should include 
+a combination of written responses, timing data, graphical representations 
+of key concepts (load balancing, communication cost, wait times, etc) and 
+code. For the load balancing questions, be sure to include graphs that
+resemble the example on the "Timing Visualisation" slide in Lecture 2.
+Take care to answer all questions and address all requests for 
+comment and comparison.  Include all code fragments that are essential 
+to understand the logical flow, but there is no need to repetitively include
+lengthy/identical I/O routines for all three programs. Do not pad out 
+the report with pointless whitespace or meaningless words and figures. 
+As a rough guide, it should not exceed ten pages in length.
+</p>
+
+<p>
+The report should convey your insight into the subtleties of MPI programming
+and explain the logic behind your solution. It should include a critical 
+assessment of the best strategy and the compromises involved. For Tasks 
+2 and 3, there are many possibilities.  Feel free to suggest more than one 
+solution.
+</p>
+
+<b> A "template" for your report: </b>
+<ol>
+  <li> <b> Introduction: </b> 
+    <ul> 
+      <li> Describe the Mandelbrot set and algorithm. 
+      </li><li> Include a render of the Mandelbrot set which you obtained from 
+           running the serial code. 
+      </li><li> State the time taken to complete the calculation with the serial code.
+    </li></ul><br>
+  </li><li> <b> Static decomposition (block partitioning):</b> 
+    <ul>
+      <li> Describe the way in which the data is distributed to the different 
+           processes in a static decomposition with block partitioning. 
+      </li><li> Explain the algorithm by which each process knows what work to do and 
+           communicates its results back to process 0.
+      </li><li> Include a code snippet showing the changes you made to the serial code 
+           to implement what you just described above.
+      </li><li> State the total time taken to complete the calculation, and the speedup 
+           relative to the serial code. Compare this to the "ideal" speedup 
+           (apply Amdahl's Law assuming the serial fraction of your parallel code is
+           essentially zero).
+      </li><li> Include a timing figure in the format shown at the end of Lecture 2, 
+           breaking down the time spent on computation, waiting, and communication 
+           by each process.
+      </li><li> Referring to your timing figure, comment on the load balancing. If there is 
+           poor load balancing, explain why in the context of the way in which the 
+           workload was distributed to the different processes.
+    </li></ul><br>
+  </li><li> <b> Dynamic decomposition (master-worker):</b> <br>
+    Include all the same points as previous, and:
+    <ul>
+      <li> A figure showing the total runtime as a function of chunk size, with chunk
+           size ranging from 1 to 10<sup>8</sup>. Explain your observations.
+      </li><li> For a chunk size equal to one tenth of the total workload, compare the 
+           calculation time to what you got in the static block partitioning task. 
+           Explain your observations.
+    </li></ul><br>
+  
+    </li><li> <b> Static decomposition (cyclic partitioning):</b><br>
+    Include all the same points as for the block partitioning, and: 
+    <ul>
+      <li> A comparison of the timing and load-balancing with the block partitioning
+           case. Explain your observations.
+    </li></ul> <br>
+  
+    </li><li> <b> Conclusions: </b>
+      <ul>
+        <li> Give an overall comparison of the three methods you implemented.
+        </li><li> What are the strengths and weakness of each?
+        </li><li> Which method performed best for this problem?
+      </li></ul>
+
+
+</li></ol>
+<br><br>
+
+<p>
+In developing your parallel algorithms and MPI progamming skills you might
+find the following advice useful:
+</p><ul>
+  <li> Start simple and test frequently. Debugging a large piece of MPI code
+       is very difficult for the novice MPI programmer. 
+  </li><li> Make your life easier by temporarily reducing the size of the problem 
+       (i.e. reduce N). Once everything is working, reset the value.
+  </li><li> For the master-worker problem, consider first coding a solution for
+       when chunksize evenly divides N*N.
+  </li><li> Your first goal is to have a working piece of MPI code. Once that is
+       achieved, try to reduce the number of send and receive calls. Finally,
+       make the code understandable for other people.
+  </li><li> Avoid duplication and replication. If an expression is used more than 
+       once, then define a variable for that expression.
+  </li><li> Ensure you have done all the regular questions in the two MPI labs.
+       Skipping over these exercises is false economy.
+  </li><li> A clean MPI algorithm is much more important than an algorithm that 
+       optimizes every last byte and CPU cycle. Feel free to simplify your
+       code by wasting a small amount of resources.
+  </li><li> Don't assume the logic of the MPI library is the same as yours. If a
+       routine is unfamiliar, first test it in isolation before proceeding.
+</li></ul>
+<p></p>
+
+
+
+</body></html>
