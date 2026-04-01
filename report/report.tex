@@ -60,13 +60,6 @@
 % - Explain serial changes
 % - Show serial time
 
-% Static Decomposition (Block Partitioning)
-% - Describe data distribution
-% - Explain algorithm for distributing work
-% - Code snippets showing changes
-% - Compare timing to serial code, and to ideal speedup (Amdahl's Law)
-% - Timing figure. Explain
-
 % Dynamic Decomposition (Master-worker)
 % - Include previous points
 % - [Non-blocking algorithm]
@@ -217,6 +210,15 @@ Wall time (seconds) & 38.2 & 5.5 & 2.8 \\
 \section{Static Decomposition (Block Partitioning)}
 \label{sec:static_block}
 
+% Static Decomposition (Block Partitioning)
+% - Describe data distribution
+% - Explain algorithm for distributing work
+% - Code snippets showing changes
+% - Compare timing to serial code, and to ideal speedup (Amdahl's Law)
+% - Timing figure. Explain
+
+
+
 \begin{lstlisting}[caption={Block Partitioning Algorithm}]
 if (rank == 0) {
     for (loop = 0; loop < half; loop++) {
@@ -248,13 +250,17 @@ for (loop = 0; loop < chunksize; loop++) {
 // ...
 \end{lstlisting}
 
+\begin{figure}[h]
+    \centering
+    \fbox{\includegraphics[width=0.6\linewidth]{benchmarks/mpi1-N_15000.png}}
+    \captionof{figure}{MPI Block Partitioning Benchmark (15000x15000 Grid)}
+    \label{fig:static_block_timing}
+\end{figure}    
 
 % -----------------------------------------------
 \section{Dynamic Decomposition (Master-Worker)}
 \label{sec:dynamic_mw}
 
-Describe your approach, design decisions, algorithms, or system
-architecture. Use sub-sections as needed.
 
 \subsection{Static Decomposition (Cyclic Partitioning)}
 
