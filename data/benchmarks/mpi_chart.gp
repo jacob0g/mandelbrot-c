@@ -1,6 +1,3 @@
-# MPI Benchmark Plot
-
-
 unset title
 
 set style data histograms

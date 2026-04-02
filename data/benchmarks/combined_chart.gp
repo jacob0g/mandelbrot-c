@@ -1,12 +1,3 @@
-# Combined Timing Data Plot
-# Plots output of combine_task2.py as a line graph with chunksize on x-axis.
-#
-# Usage:
-#   cat task_2/combined_N_8000-RANK_10.dat | gnuplot -e "title='...'" combined_chart.gp
-#
-# Optional mode variable: "all" (default), "total", "avg", "var"
-#   cat ... | gnuplot -e "title='...'; mode='avg'" combined_chart.gp
-
 if (!exists("mode")) mode = "all"
 
 set title title

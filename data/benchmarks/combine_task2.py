@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-Combine per-chunksize timing data files into a single summary file.
-
-Each input file contains per-rank timing breakdowns for a specific
-(N, RANK, CHUNKSIZE) configuration. This script aggregates them into
-one output file per (N, RANK) pair with statistics across chunk sizes.
-"""
 
 import argparse
 import glob
